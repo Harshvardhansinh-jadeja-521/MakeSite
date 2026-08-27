@@ -17,18 +17,27 @@ def extract_business_info(description):
             {
                 "role": "user",
                 "content": f"""
-Extract the following business information from the text.
+Extract business information from the following text.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON. Do not use markdown or ```json.
 
 Fields:
 - business_name
 - owner_name
+- category
 - location
 - hours
-- category
+- contact
+- products
 
-If information is missing, use null.
+Rules:
+- business_name: Name of the business. Use null if not mentioned.
+- owner_name: Name of the owner. Use null if not mentioned.
+- category: Type of business, for example Cyber Cafe, Boutique, Restaurant. Use null if unclear.
+- location: Business location. Use null if not mentioned.
+- hours: Opening and closing hours. Use null if not mentioned.
+- contact: Phone number, email, or other contact information. Use null if not mentioned.
+- products: List of products or services offered by the business. Use [] if none are mentioned.
 
 Text:
 {description}
@@ -44,8 +53,7 @@ Text:
 if __name__ == "__main__":
 
     description = """
-    Mera naam Priya hai, Sharma Boutique chalati hoon,
-    Andheri mein, subah 10 se raat 8 baje tak
+    Mera naam harsh hai. Mai ek Harsh Finance naam ka money lending firm chalaata hoon Gondal, Gujarat mai. 10:00 se 12:00 tak.
     """
 
     result = extract_business_info(description)
