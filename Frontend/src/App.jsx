@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./App.css";
+import WebsitePreview from "./components/WebsitePreview";
 
 const questions = {
   business_name: "What is the name of your business?",
@@ -11,6 +12,8 @@ function App() {
   const [description, setDescription] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const [showWebsite, setShowWebsite] = useState(false);
 
   const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [currentField, setCurrentField] = useState(null);
@@ -54,16 +57,19 @@ function App() {
       ) {
         setCurrentField(data.missing_fields[0]);
       }
+
     } catch (error) {
       console.error(error);
 
       setResult({
         error: "Could not connect to the backend.",
       });
+
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleClarificationSubmit = async () => {
     if (!clarificationAnswer.trim()) {
@@ -100,6 +106,7 @@ function App() {
       }
 
       setResult(data);
+
       setClarificationAnswer("");
 
       if (
@@ -110,6 +117,7 @@ function App() {
       } else {
         setCurrentField(null);
       }
+
     } catch (error) {
       console.error(error);
 
@@ -118,17 +126,32 @@ function App() {
       });
 
       setCurrentField(null);
+
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleStartAgain = () => {
     setDescription("");
     setResult(null);
     setCurrentField(null);
     setClarificationAnswer("");
+    setShowWebsite(false);
   };
+
+
+  // Show the generated website preview
+  if (showWebsite && result?.data) {
+    return (
+      <WebsitePreview
+        businessData={result.data}
+        onBack={() => setShowWebsite(false)}
+      />
+    );
+  }
+
 
   return (
     <div className="app">
@@ -141,6 +164,7 @@ function App() {
             Turn your business description into a website.
           </p>
         </header>
+
 
         {!result && (
           <section className="input-card">
@@ -172,6 +196,7 @@ function App() {
           </section>
         )}
 
+
         {result && result.error && (
           <div className="error-card">
 
@@ -186,8 +211,10 @@ function App() {
           </div>
         )}
 
+
         {result && result.data && (
           <>
+
             <section className="result-card">
 
               <h2>Business Information</h2>
@@ -226,6 +253,7 @@ function App() {
 
               </div>
 
+
               <div className="products-section">
 
                 <h3>Products & Services</h3>
@@ -259,6 +287,7 @@ function App() {
               </div>
 
             </section>
+
 
             {currentField && (
               <section className="clarification-card">
@@ -298,6 +327,7 @@ function App() {
               </section>
             )}
 
+
             {!currentField &&
               result.missing_fields &&
               result.missing_fields.length === 0 && (
@@ -312,7 +342,9 @@ function App() {
                     Your business information is ready for the next step.
                   </p>
 
-                  <button>
+                  <button
+                    onClick={() => setShowWebsite(true)}
+                  >
                     Generate Website
                   </button>
 
@@ -335,6 +367,7 @@ function App() {
   );
 }
 
+
 function InfoItem({ label, value }) {
   return (
     <div className="info-item">
@@ -350,5 +383,6 @@ function InfoItem({ label, value }) {
     </div>
   );
 }
+
 
 export default App;
