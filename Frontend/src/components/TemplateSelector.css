@@ -1,0 +1,272 @@
+.template-page {
+  min-height: 100vh;
+  padding: 50px 40px;
+  background: #f7f8fc;
+  box-sizing: border-box;
+}
+
+.template-header {
+  max-width: 1000px;
+  margin: 0 auto 40px;
+  text-align: center;
+  position: relative;
+}
+
+.template-header h1 {
+  margin: 10px 0;
+  font-size: 36px;
+  color: #1f2937;
+}
+
+.template-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.template-back {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  border: none;
+  background: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.template-back:hover {
+  background: #f1f3f7;
+}
+
+.template-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.template-card {
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: 0.25s ease;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+}
+
+.template-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.template-card.selected {
+  border-color: #6366f1;
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.2);
+}
+
+.template-preview {
+  height: 230px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+/* Preview common elements */
+
+.preview-top {
+  height: 25px;
+  border-radius: 6px;
+  margin-bottom: 25px;
+}
+
+.preview-title {
+  width: 65%;
+  height: 18px;
+  border-radius: 5px;
+  margin-bottom: 12px;
+}
+
+.preview-line {
+  width: 85%;
+  height: 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.preview-line.short {
+  width: 55%;
+}
+
+.preview-boxes {
+  display: flex;
+  gap: 8px;
+  margin-top: 25px;
+}
+
+.preview-boxes span {
+  flex: 1;
+  height: 60px;
+  border-radius: 7px;
+}
+
+/* Modern */
+
+.template-preview.modern {
+  background: #f3f4f6;
+}
+
+.template-preview.modern .preview-top {
+  background: #111827;
+}
+
+.template-preview.modern .preview-title {
+  background: #111827;
+}
+
+.template-preview.modern .preview-line {
+  background: #9ca3af;
+}
+
+.template-preview.modern .preview-boxes span {
+  background: white;
+  border: 1px solid #e5e7eb;
+}
+
+/* Minimal */
+
+.template-preview.minimal {
+  background: white;
+  border: 1px solid #eeeeee;
+}
+
+.template-preview.minimal .preview-top {
+  background: #eeeeee;
+  height: 18px;
+}
+
+.template-preview.minimal .preview-title {
+  background: #222222;
+  height: 14px;
+}
+
+.template-preview.minimal .preview-line {
+  background: #d1d5db;
+}
+
+.template-preview.minimal .preview-boxes span {
+  background: #f5f5f5;
+}
+
+/* Bold */
+
+.template-preview.bold {
+  background: #18181b;
+}
+
+.template-preview.bold .preview-top {
+  background: #facc15;
+  height: 30px;
+}
+
+.template-preview.bold .preview-title {
+  background: #ffffff;
+  height: 22px;
+}
+
+.template-preview.bold .preview-line {
+  background: #a1a1aa;
+}
+
+.template-preview.bold .preview-boxes span {
+  background: #facc15;
+}
+
+/* Information */
+
+.template-info {
+  padding: 20px;
+}
+
+.template-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-info p {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Selected badge */
+
+.selected-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #6366f1;
+  color: white;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Footer */
+
+.template-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.continue-button {
+  border: none;
+  background: #6366f1;
+  color: white;
+  padding: 14px 30px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.continue-button:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+}
+
+/* Mobile */
+
+@media (max-width: 800px) {
+  .template-grid {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+  }
+
+  .template-header h1 {
+    font-size: 28px;
+  }
+
+  .template-back {
+    position: static;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 500px) {
+  .template-page {
+    padding: 30px 20px;
+  }
+}

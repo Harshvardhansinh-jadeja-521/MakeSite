@@ -1,10 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from extraction import extract_business_info
-from schemas import BusinessRequest, BusinessInfo, BusinessUpdateRequest
+from content_generation import generate_website_content
+
+from schemas import (
+    BusinessRequest,
+    BusinessInfo,
+    BusinessUpdateRequest
+)
+
 import json
 
+
 app = FastAPI()
+
+
+# --------------------------------
+# CORS
+# --------------------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,34 +32,53 @@ app.add_middleware(
 )
 
 
+# --------------------------------
+# Home
+# --------------------------------
+
 @app.get("/")
 def home():
-    return {"message": "MakeSite API is running"}
+    return {
+        "message": "MakeSite API is running"
+    }
 
+
+# --------------------------------
+# Extract Business Information
+# --------------------------------
 
 @app.post("/extract")
 def extract(request: BusinessRequest):
 
-    result = extract_business_info(request.description)
+    result = extract_business_info(
+        request.description
+    )
 
     try:
+
         data = json.loads(result)
 
         # Validate AI response
         business_info = BusinessInfo(**data)
 
-        # Fields required before generating a website
+        # Required fields before
+        # generating a website
         required_fields = [
             "business_name",
             "category",
             "location"
         ]
 
-        # Check which required fields are missing
+        # Find missing fields
         missing_fields = []
 
         for field in required_fields:
-            if getattr(business_info, field) is None:
+
+            if getattr(
+                business_info,
+                field
+            ) is None:
+
                 missing_fields.append(field)
 
         return {
@@ -54,22 +87,37 @@ def extract(request: BusinessRequest):
         }
 
     except json.JSONDecodeError:
+
         return {
             "error": "AI returned invalid JSON",
             "raw_response": result
         }
 
+
+# --------------------------------
+# Update Business Information
+# --------------------------------
+
 @app.post("/update-business")
-def update_business(request: BusinessUpdateRequest):
+def update_business(
+    request: BusinessUpdateRequest
+):
 
-    # Convert Pydantic model into a dictionary
-    business_data = request.business_data.model_dump()
+    # Convert Pydantic model
+    # into a dictionary
+    business_data = (
+        request.business_data.model_dump()
+    )
 
-    # Update the requested field
-    business_data[request.field] = request.value
+    # Update requested field
+    business_data[
+        request.field
+    ] = request.value
 
-    # Validate the updated data
-    updated_business = BusinessInfo(**business_data)
+    # Validate updated data
+    updated_business = BusinessInfo(
+        **business_data
+    )
 
     # Required fields
     required_fields = [
@@ -78,14 +126,50 @@ def update_business(request: BusinessUpdateRequest):
         "location"
     ]
 
-    # Check for missing fields again
+    # Check missing fields
     missing_fields = []
 
     for field in required_fields:
-        if getattr(updated_business, field) is None:
+
+        if getattr(
+            updated_business,
+            field
+        ) is None:
+
             missing_fields.append(field)
 
     return {
         "data": updated_business.model_dump(),
         "missing_fields": missing_fields
     }
+
+
+# --------------------------------
+# Generate Website Content
+# --------------------------------
+
+@app.post("/generate-content")
+def generate_content(
+    request: BusinessInfo
+):
+
+    # Generate personalized content
+    # using the AI
+    result = generate_website_content(
+        request.model_dump()
+    )
+
+    try:
+
+        content = json.loads(result)
+
+        return {
+            "content": content
+        }
+
+    except json.JSONDecodeError:
+
+        return {
+            "error": "AI returned invalid JSON",
+            "raw_response": result
+        }
