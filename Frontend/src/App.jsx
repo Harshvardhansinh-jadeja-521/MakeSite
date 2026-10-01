@@ -4,6 +4,8 @@ import "./App.css";
 import WebsitePreview from "./components/WebsitePreview";
 import TemplateSelector from "./components/TemplateSelector";
 import VoiceInput from "./components/VoiceInput";
+import FloatingShapes from "./components/FloatingShapes";
+import TiltCard from "./components/TiltCard";
 
 
 const questions = {
@@ -431,6 +433,9 @@ function App() {
 
     <div className="app">
 
+      {/* 3D Background */}
+      <FloatingShapes />
+
       <div className="container">
 
 
@@ -438,14 +443,20 @@ function App() {
 
         <header className="header">
 
-          <h1>
-            MakeSite
+          <div className="header-badge">
+            ✦ AI-Powered Website Builder
+          </div>
+
+          <h1 className="header-3d-title">
+            <span className="title-layer">MakeSite</span>
           </h1>
 
           <p>
             Turn your business description
             into a website.
           </p>
+
+          <div className="header-glow-line" />
 
         </header>
 
@@ -454,6 +465,7 @@ function App() {
 
         {!result && (
 
+          <TiltCard className="tilt-wrapper" intensity={6}>
           <section className="input-card">
 
             <h2>
@@ -505,6 +517,8 @@ function App() {
 
             <button
 
+              className="btn-3d"
+
               onClick={
                 handleSubmit
               }
@@ -513,14 +527,23 @@ function App() {
 
             >
 
-              {loading
-                ? "Extracting information..."
-                : "Extract Information"}
+              {loading ? (
+                <span className="btn-loading">
+                  <span className="spinner" />
+                  Extracting information...
+                </span>
+              ) : (
+                <span className="btn-content">
+                  <span className="btn-icon">⚡</span>
+                  Extract Information
+                </span>
+              )}
 
             </button>
 
 
           </section>
+          </TiltCard>
 
         )}
 
@@ -561,9 +584,11 @@ function App() {
 
             <>
 
+              <TiltCard className="tilt-wrapper" intensity={5}>
               <section className="result-card">
 
                 <h2>
+                  <span className="section-icon">📋</span>
                   Business Information
                 </h2>
 
@@ -575,6 +600,7 @@ function App() {
                     value={
                       result.data.business_name
                     }
+                    icon="🏢"
                   />
 
 
@@ -583,6 +609,7 @@ function App() {
                     value={
                       result.data.owner_name
                     }
+                    icon="👤"
                   />
 
 
@@ -591,6 +618,7 @@ function App() {
                     value={
                       result.data.category
                     }
+                    icon="📁"
                   />
 
 
@@ -599,6 +627,7 @@ function App() {
                     value={
                       result.data.location
                     }
+                    icon="📍"
                   />
 
 
@@ -607,6 +636,7 @@ function App() {
                     value={
                       result.data.hours
                     }
+                    icon="🕒"
                   />
 
 
@@ -615,6 +645,7 @@ function App() {
                     value={
                       result.data.contact
                     }
+                    icon="📞"
                   />
 
                 </div>
@@ -625,6 +656,7 @@ function App() {
                 <div className="products-section">
 
                   <h3>
+                    <span className="section-icon">🛍️</span>
                     Products & Services
                   </h3>
 
@@ -640,6 +672,9 @@ function App() {
                           <span
                             className="product-tag"
                             key={index}
+                            style={{
+                              animationDelay: `${index * 0.08}s`,
+                            }}
                           >
 
                             {product}
@@ -665,15 +700,18 @@ function App() {
                 </div>
 
               </section>
+              </TiltCard>
 
 
               {/* Clarification */}
 
               {currentField && (
 
+                <TiltCard className="tilt-wrapper" intensity={6}>
                 <section className="clarification-card">
 
                   <h2>
+                    <span className="section-icon">💬</span>
                     We need one more detail
                   </h2>
 
@@ -718,6 +756,8 @@ function App() {
 
                   <button
 
+                    className="btn-3d"
+
                     onClick={
                       handleClarificationSubmit
                     }
@@ -728,12 +768,13 @@ function App() {
 
                     {loading
                       ? "Updating..."
-                      : "Continue"}
+                      : "Continue →"}
 
                   </button>
 
 
                 </section>
+                </TiltCard>
 
               )}
 
@@ -746,13 +787,16 @@ function App() {
 
                 result.missing_fields.length === 0 && (
 
+                  <TiltCard className="tilt-wrapper" intensity={4}>
                   <section className="success-card">
 
+                    <div className="success-icon-3d">
+                      <div className="success-checkmark">✓</div>
+                    </div>
+
                     <h2>
-
-                      ✓ All required
+                      All required
                       information collected!
-
                     </h2>
 
 
@@ -766,6 +810,8 @@ function App() {
 
                     <button
 
+                      className="btn-3d btn-generate"
+
                       onClick={
                         generateWebsiteContent
                       }
@@ -774,9 +820,17 @@ function App() {
 
                     >
 
-                      {loading
-                        ? "Creating your website..."
-                        : "Generate Website"}
+                      {loading ? (
+                        <span className="btn-loading">
+                          <span className="spinner" />
+                          Creating your website...
+                        </span>
+                      ) : (
+                        <span className="btn-content">
+                          <span className="btn-icon">🚀</span>
+                          Generate Website
+                        </span>
+                      )}
 
                     </button>
 
@@ -791,12 +845,13 @@ function App() {
 
                     >
 
-                      Start Again
+                      ↺ Start Again
 
                     </button>
 
 
                   </section>
+                  </TiltCard>
 
                 )}
 
@@ -821,11 +876,16 @@ function App() {
 function InfoItem({
   label,
   value,
+  icon,
 }) {
 
   return (
 
     <div className="info-item">
+
+      {icon && (
+        <span className="info-icon">{icon}</span>
+      )}
 
       <span className="info-label">
         {label}
