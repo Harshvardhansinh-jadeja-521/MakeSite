@@ -1,19 +1,24 @@
 import "./FloatingShapes.css";
 
-// ---------------------------------------------------------------------------
-// Studio Ambient Background
-// Replaces cluttered AI-style 3D spinning shapes with a clean, high-precision
-// architectural dot-grid and subtle slate-sapphire ambient illumination.
-// ---------------------------------------------------------------------------
-
+/**
+ * Animated Architectural Grid Background
+ * Subtle, precision-engineered background with sliding grid lines,
+ * ambient soft luminescence, and micro-accent dots.
+ */
 function FloatingShapes() {
   return (
-    <div className="studio-background" aria-hidden="true">
-      {/* Subtle top ambient lighting (clean sapphire/slate, NOT purple) */}
-      <div className="ambient-glow" />
-
-      {/* Technical precision dot grid */}
-      <div className="studio-grid" />
+    <div className="grid-bg" aria-hidden="true">
+      <div className="grid-bg__lines" />
+      <div className="grid-bg__glow" />
+      <div className="grid-bg__mask" />
+      {/* Precision grid accents / crosshairs */}
+      <span className="grid-bg__dot dot-1" />
+      <span className="grid-bg__dot dot-2" />
+      <span className="grid-bg__dot dot-3" />
+      <span className="grid-bg__dot dot-4" />
+      <span className="grid-bg__dot dot-5" />
+      <div className="grid-bg__crosshair ch-1" />
+      <div className="grid-bg__crosshair ch-2" />
     </div>
   );
 }

@@ -1,57 +1,174 @@
 /* ==============================================================================
-   STUDIO BACKGROUND — MINIMAL ARCHITECTURAL GRID & AMBIENT SLATE
-   Zero purple wash, zero distracting spinning 3D shapes.
+   ANIMATED ARCHITECTURAL GRID BACKGROUND
+   High-precision, subtle, performant background system.
+   Zero cheesy vibe-coding or harsh neons.
 ============================================================================== */
 
-.studio-background {
+.grid-bg {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
-  background-color: #08090d;
+  background: var(--bg-0);
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Subtle top illumination in electric sapphire / slate */
-.ambient-glow {
+/* --- Precision line grid with continuous slow drift --- */
+.grid-bg__lines {
+  position: absolute;
+  inset: -128px;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: gridDrift 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes gridDrift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(48px, 48px, 0);
+  }
+}
+
+/* --- Ambient atmospheric glow behind the hero console --- */
+.grid-bg__glow {
   position: absolute;
   top: -150px;
   left: 50%;
+  width: 900px;
+  height: 600px;
   transform: translateX(-50%);
-  width: 800px;
-  height: 500px;
   background: radial-gradient(
-    ellipse at center,
-    rgba(37, 99, 235, 0.09) 0%,
-    rgba(14, 165, 233, 0.04) 40%,
-    transparent 70%
+    ellipse 60% 50% at 50% 40%,
+    rgba(99, 102, 241, 0.14) 0%,
+    rgba(6, 182, 212, 0.05) 45%,
+    transparent 75%
   );
   filter: blur(80px);
-  pointer-events: none;
+  animation: glowBreathe 10s ease-in-out infinite alternate;
+  will-change: opacity, transform;
 }
 
-/* Precision technical dot grid (Linear / Vercel studio aesthetic) */
-.studio-grid {
+[data-theme="light"] .grid-bg__glow {
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 40%,
+    rgba(79, 70, 229, 0.08) 0%,
+    rgba(14, 165, 233, 0.04) 50%,
+    transparent 75%
+  );
+  filter: blur(70px);
+}
+
+@keyframes glowBreathe {
+  0% {
+    opacity: 0.6;
+    transform: translateX(-50%) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+/* --- Radial Vignette: keeps center legible and softens outer bounds --- */
+.grid-bg__mask {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(
-    rgba(255, 255, 255, 0.065) 1px,
-    transparent 1px
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 40%,
+    transparent 0%,
+    rgba(9, 10, 15, 0.4) 60%,
+    var(--bg-0) 100%
   );
-  background-size: 28px 28px;
-  mask-image: radial-gradient(
-    ellipse at 50% 30%,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.5) 60%,
-    transparent 90%
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .grid-bg__mask {
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 40%,
+    transparent 0%,
+    rgba(248, 250, 252, 0.4) 60%,
+    var(--bg-0) 100%
   );
-  -webkit-mask-image: radial-gradient(
-    ellipse at 50% 30%,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.5) 60%,
-    transparent 90%
-  );
-  opacity: 0.85;
+}
+
+/* --- Subtle floating intersection nodes --- */
+.grid-bg__dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  opacity: 0;
+  animation: dotPulse 5s ease-in-out infinite;
+}
+
+.dot-1 { top: 22%; left: 18%; animation-delay: 0s; }
+.dot-2 { top: 38%; left: 82%; animation-delay: 1.5s; }
+.dot-3 { top: 62%; left: 24%; animation-delay: 3s; }
+.dot-4 { top: 28%; left: 68%; animation-delay: 2.2s; }
+.dot-5 { top: 76%; left: 78%; animation-delay: 4.1s; }
+
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 0.1;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.4);
+  }
+}
+
+/* --- Structural Crosshair Accents --- */
+.grid-bg__crosshair {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  opacity: 0.25;
+  transition: opacity 0.3s ease;
+}
+
+.grid-bg__crosshair::before,
+.grid-bg__crosshair::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+}
+
+.grid-bg__crosshair::before {
+  top: 6px;
+  left: 0;
+  width: 14px;
+  height: 1px;
+}
+
+.grid-bg__crosshair::after {
+  top: 0;
+  left: 6px;
+  width: 1px;
+  height: 14px;
+}
+
+.ch-1 {
+  top: 18%;
+  left: 12%;
+  animation: crosshairFade 8s ease-in-out infinite;
+}
+
+.ch-2 {
+  top: 45%;
+  right: 14%;
+  animation: crosshairFade 8s ease-in-out infinite 4s;
+}
+
+@keyframes crosshairFade {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.45; }
 }

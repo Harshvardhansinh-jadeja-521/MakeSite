@@ -152,14 +152,29 @@ function VoiceInput({ onTranscript }) {
           listening ? "listening" : ""
         }`}
         onClick={handleVoiceButton}
+        title={listening ? "Stop voice recording" : "Dictate your business description"}
       >
         <span className="mic-icon">
-          {listening ? "⏹️" : "🎤"}
+          {listening ? (
+            <span className="voice-waves" aria-hidden="true">
+              <span className="wave-bar b1" />
+              <span className="wave-bar b2" />
+              <span className="wave-bar b3" />
+            </span>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+            </svg>
+          )}
         </span>
 
-        {listening
-          ? "Stop Listening"
-          : "Describe with Voice"}
+        <span>
+          {listening
+            ? "Listening..."
+            : "Voice Input"}
+        </span>
       </button>
 
       {listening && (

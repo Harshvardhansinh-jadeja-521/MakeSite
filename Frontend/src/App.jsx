@@ -15,19 +15,19 @@ const questions = {
 
 const SAMPLE_PROMPTS = [
   {
-    label: "☕ Artisan Cafe",
+    label: "Artisan Cafe",
     text: "I run an artisan coffee roastery and bakery called Bean & Bloom in Bandra, Mumbai. We operate from 7:30 AM to 10:00 PM every day. We serve handcrafted espresso, single-origin pour-overs, organic sourdough croissants, and vegan pastries. Contact us at hello@beanandbloom.in.",
   },
   {
-    label: "💻 Cyber Cafe & Print Hub",
+    label: "Cyber Cafe",
     text: "Mera naam Harsh hai. Mai Harsh Cyber Cafe chalata hu CG Road Ahmedabad mai. We are open 9:00 AM to 10:00 PM. Hum high-speed internet, color printing, document scanning, passport photo, aur online exam form submission services provide karte hai. Phone: +91 9876543210.",
   },
   {
-    label: "🌿 Wellness Spa",
+    label: "Wellness Spa",
     text: "We run a luxury holistic wellness and Ayurvedic therapy sanctuary called Nirvana Spa in Indiranagar, Bengaluru. Open Tuesday to Sunday from 8:00 AM to 8:30 PM. We offer deep tissue massage, organic herbal facials, steam baths, and sound meditation. Reach us at booking@nirvanaspa.com.",
   },
   {
-    label: "💼 Financial Advisory",
+    label: "Financial Advisory",
     text: "Harsh Capital is a premier financial planning and wealth advisory firm located in Connaught Place, New Delhi. Open Monday to Friday 9:30 AM to 6:30 PM. We specialize in mutual fund portfolio management, tax advisory, retirement planning, and corporate insurance. Contact: contact@harshcapital.com.",
   },
 ];
@@ -45,6 +45,22 @@ function App() {
   const [currentField, setCurrentField] = useState(null);
   const [apiHealth, setApiHealth] = useState({ status: "checking", groq: false });
   const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("makesite-theme") || "dark";
+    }
+    return "dark";
+  });
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("makesite-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
 
   // Ping backend health on mount
   useEffect(() => {
@@ -108,10 +124,12 @@ function App() {
       } else {
         setCurrentField(null);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Extraction error:", err);
       setResult({
-        error: "Could not connect to the MakeSite backend engine. Ensure the FastAPI server is running on port 8000.",
+        error:
+          err.message ||
+          "Unable to extract business data. Ensure backend is running at http://127.0.0.1:8000.",
       });
     } finally {
       setLoading(false);
@@ -120,86 +138,58 @@ function App() {
   };
 
   // --------------------------------
-  // Submit Clarification
+  // Clarification Input Submission
   // --------------------------------
-  const handleClarificationSubmit = async () => {
-    if (!clarificationAnswer.trim()) {
-      alert("Please enter a response for this field.");
-      return;
+  const handleClarificationSubmit = () => {
+    if (!clarificationAnswer.trim()) return;
+
+    const updatedData = {
+      ...result.data,
+      [currentField]: clarificationAnswer.trim(),
+    };
+
+    let remainingMissing = (result.missing_fields || []).filter(
+      (f) => f !== currentField
+    );
+
+    // Re-verify contact requirement
+    if (currentField !== "contact" && (!updatedData.contact || !String(updatedData.contact).trim())) {
+      if (!remainingMissing.includes("contact")) {
+        remainingMissing.push("contact");
+      }
     }
 
-    if (!result?.data || !currentField) return;
+    setResult({
+      ...result,
+      data: updatedData,
+      missing_fields: remainingMissing,
+      is_complete: remainingMissing.length === 0,
+    });
 
-    setLoading(true);
-    setLoadingStage("Updating business profile...");
+    setClarificationAnswer("");
 
-    try {
-      const response = await fetch("http://127.0.0.1:8000/update-business", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_data: result.data,
-          field: currentField,
-          value: clarificationAnswer.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.detail || "Backend update failed");
-      }
-
-      setResult(data);
-      setClarificationAnswer("");
-
-      const missing = [...(data.missing_fields || [])];
-      if (!data.data?.contact || !String(data.data.contact).trim()) {
-        if (!missing.includes("contact")) {
-          missing.push("contact");
-        }
-      }
-
-      if (missing.length > 0) {
-        setCurrentField(missing[0]);
-      } else {
-        setCurrentField(null);
-      }
-    } catch (error) {
-      console.error(error);
-      setResult({
-        error: "Could not update business details.",
-      });
-      setCurrentField(null);
-    } finally {
-      setLoading(false);
-      setLoadingStage("");
-    }
-  };
-
-  // --------------------------------
-  // Direct Field Edit Update
-  // --------------------------------
-  const handleFieldChange = (field, value) => {
-    if (!result?.data) return;
-    const updated = { ...result.data, [field]: value };
-    setResult((prev) => ({
-      ...prev,
-      data: updated,
-    }));
-    if (field === "contact" && value && value.trim() && currentField === "contact") {
+    if (remainingMissing.length > 0) {
+      setCurrentField(remainingMissing[0]);
+    } else {
       setCurrentField(null);
     }
   };
 
   // --------------------------------
-  // Generate AI Website Content
+  // Generate Website Content
   // --------------------------------
   const generateWebsiteContent = async () => {
     if (!result?.data) return;
 
+    // Compulsory contact validation guard
+    if (!result.data.contact || !String(result.data.contact).trim()) {
+      setCurrentField("contact");
+      alert("Contact details (phone number or email) are compulsory before generating the website.");
+      return;
+    }
+
     setLoading(true);
-    setLoadingStage("Synthesizing tailored website copy & structure...");
+    setLoadingStage("Generating website content...");
 
     try {
       const response = await fetch("http://127.0.0.1:8000/generate-content", {
@@ -210,33 +200,73 @@ function App() {
 
       const data = await response.json();
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Content generation failed");
+      if (!response.ok) {
+        throw new Error(data?.detail || "Content generation failed");
       }
 
       setWebsiteContent(data.content);
       setShowTemplates(true);
-    } catch (error) {
-      console.error(error);
-      alert("Could not generate AI website copy. Please verify your backend server.");
+    } catch (err) {
+      console.error("Content generation error:", err);
+      // Fallback content so user can proceed
+      setWebsiteContent({
+        hero_title: `Welcome to ${result.data.business_name || "Our Business"}`,
+        hero_description: `Premier ${result.data.category || "service"} provider proudly based in ${result.data.location || "your community"}.`,
+        cta: "Connect With Our Team",
+        about: `${result.data.business_name || "Our business"} is dedicated to delivering excellence, precision, and reliable customer service across ${result.data.location || "the region"}.`,
+        services: (result.data.products || []).map((p) => ({
+          name: typeof p === "string" ? p : "Service Offering",
+          description: `Professional, dependable ${p} delivered with expert care.`,
+        })),
+        features: [
+          {
+            title: "Verified Excellence",
+            description: "High-grade service standards with transparent client care.",
+          },
+          {
+            title: "Locally Established",
+            description: `Proudly operating in ${result.data.location || "the area"}.`,
+          },
+          {
+            title: "Direct Communication",
+            description: "Direct assistance with fast, responsive support.",
+          },
+        ],
+        faqs: [
+          {
+            question: `Where are you located?`,
+            answer: `Find us in ${result.data.location || "our central location"}. Operating hours: ${result.data.hours || "regular hours"}.`,
+          },
+          {
+            question: `How do I reach out?`,
+            answer: `You can reach out directly via ${result.data.contact || "our contact options"} or visit us during hours.`,
+          },
+        ],
+      });
+      setShowTemplates(true);
     } finally {
       setLoading(false);
       setLoadingStage("");
     }
   };
 
-  // --------------------------------
-  // Reset & Start Again
-  // --------------------------------
+  const handleFieldChange = (field, value) => {
+    setResult((prev) => ({
+      ...prev,
+      data: {
+        ...prev.data,
+        [field]: value,
+      },
+    }));
+  };
+
   const handleStartAgain = () => {
-    setDescription("");
     setResult(null);
-    setCurrentField(null);
-    setClarificationAnswer("");
+    setDescription("");
     setShowWebsite(false);
     setShowTemplates(false);
-    setSelectedTemplate("modern-dark");
     setWebsiteContent(null);
+    setCurrentField(null);
     setIsEditingInfo(false);
   };
 
@@ -299,25 +329,23 @@ function App() {
   const completeness = calculateCompleteness();
 
   return (
-    <div className="studio-app">
+    <div className="app">
       <FloatingShapes />
 
-      {/* Top Studio Navigation Bar */}
-      <header className="studio-topbar">
+      {/* Top Navigation */}
+      <header className="topbar">
         <div className="topbar-inner">
           <div className="brand-group">
-            <div className="brand-logo">
-              <span className="brand-spark">✦</span>
-              <span className="brand-name">MakeSite</span>
-            </div>
-            <span className="brand-tag">Studio v2.4</span>
+            <div className="brand-icon-box">M</div>
+            <span className="brand-name">MakeSite</span>
+            <span className="brand-badge">Studio</span>
           </div>
 
-          {/* Interactive Step Navigator */}
-          <nav className="step-navigator" aria-label="Creation stages">
+          {/* Step Navigator */}
+          <nav className="stepper" aria-label="Creation stages">
             <button
               type="button"
-              className={`nav-step ${activeStep >= 1 ? "completed" : ""} ${activeStep === 1 ? "current" : ""}`}
+              className={`stepper-step ${activeStep >= 1 ? "completed" : ""} ${activeStep === 1 ? "current" : ""}`}
               onClick={() => {
                 if (result?.data) {
                   setShowTemplates(false);
@@ -325,30 +353,26 @@ function App() {
                 }
               }}
             >
-              <span className="nav-step-index">01</span>
-              <span className="nav-step-label">Business Brief</span>
+              <span className="stepper-num">1</span>
+              <span>Prompt</span>
             </button>
-
-            <span className="nav-step-arrow">→</span>
-
+            <span className="stepper-divider" />
             <button
               type="button"
-              className={`nav-step ${activeStep >= 2 ? "completed" : ""} ${activeStep === 2 ? "current" : ""}`}
+              className={`stepper-step ${activeStep >= 2 ? "completed" : ""} ${activeStep === 2 ? "current" : ""}`}
               disabled={!result?.data}
               onClick={() => {
                 setShowTemplates(false);
                 setShowWebsite(false);
               }}
             >
-              <span className="nav-step-index">02</span>
-              <span className="nav-step-label">Blueprint</span>
+              <span className="stepper-num">2</span>
+              <span>Blueprint</span>
             </button>
-
-            <span className="nav-step-arrow">→</span>
-
+            <span className="stepper-divider" />
             <button
               type="button"
-              className={`nav-step ${activeStep >= 3 ? "completed" : ""} ${activeStep === 3 ? "current" : ""}`}
+              className={`stepper-step ${activeStep >= 3 ? "completed" : ""} ${activeStep === 3 ? "current" : ""}`}
               disabled={!result?.data}
               onClick={() => {
                 if (result?.data) {
@@ -357,39 +381,52 @@ function App() {
                 }
               }}
             >
-              <span className="nav-step-index">03</span>
-              <span className="nav-step-label">Architecture</span>
+              <span className="stepper-num">3</span>
+              <span>Templates</span>
             </button>
-
-            <span className="nav-step-arrow">→</span>
-
+            <span className="stepper-divider" />
             <button
               type="button"
-              className={`nav-step ${activeStep >= 4 ? "completed" : ""} ${activeStep === 4 ? "current" : ""}`}
+              className={`stepper-step ${activeStep >= 4 ? "completed" : ""} ${activeStep === 4 ? "current" : ""}`}
               disabled={!websiteContent}
             >
-              <span className="nav-step-index">04</span>
-              <span className="nav-step-label">Live Canvas</span>
+              <span className="stepper-num">4</span>
+              <span>Preview</span>
             </button>
           </nav>
 
-          {/* Engine Health & Action */}
+          {/* Right Actions */}
           <div className="topbar-actions">
-            <div className={`engine-status-pill status-${apiHealth.status}`}>
-              <span className="status-indicator-dot" />
-              <span className="status-indicator-text">
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              <div className="theme-toggle-track">
+                <div className="theme-toggle-thumb">
+                  {theme === "dark" ? "🌙" : "☀️"}
+                </div>
+              </div>
+            </button>
+
+            <div className={`engine-status status-${apiHealth.status}`}>
+              <span className="engine-dot" />
+              <span>
                 {apiHealth.status === "healthy"
-                  ? "Groq Engine Active"
+                  ? "AI Active"
                   : apiHealth.status === "checking"
-                  ? "Connecting Engine..."
-                  : "Engine Local Mode"}
+                  ? "Connecting..."
+                  : "Offline"}
               </span>
             </div>
 
             {result && (
               <button
                 type="button"
-                className="btn-studio-ghost"
+                className="btn-ghost"
                 onClick={handleStartAgain}
                 title="Reset and start over"
               >
@@ -400,73 +437,65 @@ function App() {
         </div>
       </header>
 
-      {/* Main Studio Dual-Column Workspace */}
-      <main className="studio-main-container">
-        {/* ============================================================
-            STEP 1: DESCRIPTION INPUT WORKSPACE
-        ============================================================ */}
+      {/* Main Content */}
+      <main className="main-content">
+        {/* ============ STEP 1: DESCRIPTION INPUT ============ */}
         {!result && (
-          <div className="studio-workspace">
-            {/* Left Column: Input & Controls */}
-            <div className="studio-col studio-editor-col">
-              <div className="studio-panel">
-                <div className="panel-header">
-                  <div className="panel-title-group">
-                    <span className="panel-eyebrow">Input Parameters</span>
-                    <h2 className="panel-title">Describe Your Business</h2>
-                  </div>
-                  <span className="lang-pill">English • Hindi • Hinglish</span>
-                </div>
+          <div className="hero">
+            <div className="hero-header">
+              <div className="hero-tag">
+                <span className="hero-tag-dot" />
+                <span>AI Website Generator</span>
+              </div>
+              <h1 className="hero-title">
+                Build Static Websites{" "}
+                <span className="hero-title-accent">in Seconds</span>
+              </h1>
+              <p className="hero-subtitle">
+                Describe your business in plain English or Hinglish. MakeSite extracts your information and generates a production-ready static website.
+              </p>
+            </div>
 
-                <p className="panel-description">
-                  Tell MakeSite what your business does, where you operate, what services you provide, and your contact info. The engine automatically extracts and organizes your profile.
-                </p>
+            <div className="input-card">
+              {/* Presets */}
+              <div className="presets">
+                <span className="presets-label">Try:</span>
+                {SAMPLE_PROMPTS.map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="preset-btn"
+                    onClick={() => setDescription(p.text)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
 
-                {/* Sample Prompt Chips */}
-                <div className="prompt-presets-section">
-                  <div className="presets-label-row">
-                    <span className="presets-label">Prompt Presets:</span>
-                    <span className="presets-hint">Click any preset to test immediately</span>
-                  </div>
-                  <div className="presets-grid">
-                    {SAMPLE_PROMPTS.map((p, idx) => (
+              {/* Textarea */}
+              <div className="textarea-wrap">
+                <textarea
+                  id="business-description-input"
+                  className="textarea"
+                  placeholder="Tell MakeSite about your business — name, location, products, hours, and contact details..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                />
+                <div className="textarea-toolbar">
+                  <div className="toolbar-left">
+                    <span className="char-count">{description.length} chars</span>
+                    {description.trim() && (
                       <button
-                        key={idx}
                         type="button"
-                        className="preset-chip"
-                        onClick={() => setDescription(p.text)}
+                        className="btn-clear"
+                        onClick={() => setDescription("")}
                       >
-                        {p.label}
+                        Clear
                       </button>
-                    ))}
+                    )}
                   </div>
-                </div>
-
-                {/* Textarea Input Card */}
-                <div className="editor-textarea-wrap">
-                  <textarea
-                    id="business-description-input"
-                    className="studio-textarea"
-                    placeholder="Example: I run an artisan specialty coffee roastery called Bean & Bloom in Bandra, Mumbai. We operate from 7:30 AM to 10:00 PM every day. We serve handcrafted espresso, single-origin pour-overs, and sourdough pastries. Contact us at hello@beanandbloom.in."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={6}
-                  />
-
-                  <div className="textarea-footer">
-                    <div className="textarea-meta">
-                      <span className="char-counter">{description.length} characters</span>
-                      {description.trim() && (
-                        <button
-                          type="button"
-                          className="btn-clear-text"
-                          onClick={() => setDescription("")}
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-
+                  <div>
                     <VoiceInput
                       onTranscript={(text) => {
                         setDescription((prev) => (prev ? `${prev} ${text}` : text));
@@ -474,117 +503,66 @@ function App() {
                     />
                   </div>
                 </div>
-
-                {/* Submit Action CTA */}
-                <button
-                  type="button"
-                  className="btn-studio-primary"
-                  onClick={handleSubmit}
-                  disabled={loading || !description.trim()}
-                  id="extract-info-btn"
-                >
-                  {loading ? (
-                    <span className="btn-loading-state">
-                      <span className="studio-spinner" />
-                      {loadingStage || "Analyzing description..."}
-                    </span>
-                  ) : (
-                    <span className="btn-idle-state">
-                      <span>Analyze & Extract Business Profile</span>
-                      <span className="btn-arrow">→</span>
-                    </span>
-                  )}
-                </button>
               </div>
+
+              {/* Submit */}
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleSubmit}
+                disabled={loading || !description.trim()}
+                id="extract-info-btn"
+              >
+                {loading ? (
+                  <span className="btn-content">
+                    <span className="spinner" />
+                    <span>{loadingStage || "Analyzing..."}</span>
+                  </span>
+                ) : (
+                  <span className="btn-content">
+                    <span>Generate Website</span>
+                    <span className="btn-arrow">→</span>
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Right Column: Engine Specifications & Architecture Guarantees */}
-            <div className="studio-col studio-spec-col">
-              <div className="studio-panel spec-panel">
-                <div className="spec-header">
-                  <span className="spec-badge">Engine Architecture</span>
-                  <h3 className="spec-title">Production Design Guarantees</h3>
-                  <p className="spec-subtitle">
-                    Websites generated by MakeSite adhere to strict static presentation standards engineered for fast deployment and academic demonstration.
-                  </p>
-                </div>
-
-                <div className="spec-feature-list">
-                  <div className="spec-feature-item">
-                    <div className="feature-icon-box">📌</div>
-                    <div className="feature-details">
-                      <h4>100% Strictly Static Presentation</h4>
-                      <p>
-                        Zero shopping carts or "Shop Now" checkout traps. Action buttons smoothly scroll down to verified in-page contact details with highlight animation.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="spec-feature-item">
-                    <div className="feature-icon-box">🎨</div>
-                    <div className="feature-details">
-                      <h4>7 Handcrafted Template Engines</h4>
-                      <p>
-                        Choose from Dark Luxe, Minimalist Studio, Aurora Vibrant, Enterprise Executive, Sunset Bistro, Emerald Oasis, and Cyber Engine.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="spec-feature-item">
-                    <div className="feature-icon-box">🧠</div>
-                    <div className="feature-details">
-                      <h4>Natural Entity Normalization</h4>
-                      <p>
-                        Groq-powered entity parser recognizes business identity, operating schedules, physical addresses, and services across multilingual prompts.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="spec-feature-item">
-                    <div className="feature-icon-box">📦</div>
-                    <div className="feature-details">
-                      <h4>Self-Contained Standalone Export</h4>
-                      <p>
-                        Export clean standalone single-file HTML or complete ZIP archives with zero external runtime dependencies.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Technical Metric Card */}
-                <div className="spec-metrics-card">
-                  <div className="metric-col">
-                    <span className="metric-val">100%</span>
-                    <span className="metric-key">Static Compliance</span>
-                  </div>
-                  <div className="metric-col-divider" />
-                  <div className="metric-col">
-                    <span className="metric-val">7</span>
-                    <span className="metric-key">Layout Engines</span>
-                  </div>
-                  <div className="metric-col-divider" />
-                  <div className="metric-col">
-                    <span className="metric-val">&lt; 1.5s</span>
-                    <span className="metric-key">Parsing Latency</span>
-                  </div>
-                </div>
+            {/* Feature Cards */}
+            <div className="features-row">
+              <div className="feature-card">
+                <div className="feature-accent-line" />
+                <h3 className="feature-title">Pure Static Output</h3>
+                <p className="feature-desc">
+                  No broken redirects. Smooth in-page scrolling with verified contact details built in.
+                </p>
+              </div>
+              <div className="feature-card">
+                <div className="feature-accent-line" />
+                <h3 className="feature-title">Contact Validated</h3>
+                <p className="feature-desc">
+                  Phone or email is validated upfront so every visitor can connect directly.
+                </p>
+              </div>
+              <div className="feature-card">
+                <div className="feature-accent-line" />
+                <h3 className="feature-title">ZIP Export</h3>
+                <p className="feature-desc">
+                  Download a complete offline-ready bundle with zero external dependencies.
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ============================================================
-            ERROR STATE
-        ============================================================ */}
+        {/* ============ ERROR STATE ============ */}
         {result && result.error && (
-          <div className="studio-error-container">
-            <div className="studio-error-card">
-              <span className="error-icon-badge">⚠️</span>
-              <h3>Extraction Engine Notice</h3>
+          <div className="error-wrap">
+            <div className="error-card">
+              <h3>Something went wrong</h3>
               <p>{result.error}</p>
               <button
                 type="button"
-                className="btn-studio-primary error-retry-btn"
+                className="btn-primary"
                 onClick={handleStartAgain}
               >
                 ↺ Try Again
@@ -593,127 +571,70 @@ function App() {
           </div>
         )}
 
-        {/* ============================================================
-            STEP 2: EXTRACTED BLUEPRINT & REVIEW WORKSPACE
-        ============================================================ */}
+        {/* ============ STEP 2: BLUEPRINT REVIEW ============ */}
         {result && result.data && (
-          <div className="studio-workspace">
-            {/* Left Column: Blueprint Field Inspector */}
-            <div className="studio-col studio-editor-col">
-              <div className="studio-panel">
+          <div className="blueprint-layout">
+            {/* Left: Blueprint Data */}
+            <div>
+              <div className="panel">
                 <div className="panel-header">
-                  <div className="panel-title-group">
-                    <span className="panel-eyebrow">Entity Blueprint</span>
-                    <h2 className="panel-title">Extracted Business Details</h2>
+                  <div>
+                    <span className="panel-tag">Structured Data</span>
+                    <h2 className="panel-title">Business Blueprint</h2>
                   </div>
-
                   <button
                     type="button"
-                    className={`btn-edit-toggle ${isEditingInfo ? "active" : ""}`}
+                    className={`btn-edit ${isEditingInfo ? "active" : ""}`}
                     onClick={() => setIsEditingInfo(!isEditingInfo)}
                   >
-                    {isEditingInfo ? "✓ Done Editing" : "✏️ Edit Fields"}
+                    {isEditingInfo ? "✓ Done" : "✏️ Edit"}
                   </button>
                 </div>
 
-                <p className="panel-description">
-                  Review the structured entities extracted from your prompt. You can adjust any field below before generating the final website copy.
+                <p className="panel-desc">
+                  Review the structured data extracted from your description. Edit any field before proceeding.
                 </p>
 
-                {/* 2-Column Structured Info Grid */}
-                <div className="blueprint-fields-grid">
-                  <BlueprintField
-                    label="Business Name"
-                    field="business_name"
-                    value={result.data.business_name}
-                    icon="🏢"
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
-
-                  <BlueprintField
-                    label="Category / Industry"
-                    field="category"
-                    value={result.data.category}
-                    icon="📁"
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
-
-                  <BlueprintField
-                    label="Physical Location"
-                    field="location"
-                    value={result.data.location}
-                    icon="📍"
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
-
-                  <BlueprintField
-                    label="Operating Hours"
-                    field="hours"
-                    value={result.data.hours}
-                    icon="🕒"
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
-
-                  <BlueprintField
-                    label="Direct Contact"
-                    field="contact"
-                    value={result.data.contact}
-                    icon="📞"
-                    isRequired={true}
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
-
-                  <BlueprintField
-                    label="Owner / Founder"
-                    field="owner_name"
-                    value={result.data.owner_name}
-                    icon="👤"
-                    isEditing={isEditingInfo}
-                    onChange={handleFieldChange}
-                  />
+                {/* Fields Grid */}
+                <div className="fields-grid">
+                  <BlueprintField label="Business Name" field="business_name" value={result.data.business_name} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Category" field="category" value={result.data.category} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Location" field="location" value={result.data.location} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Hours" field="hours" value={result.data.hours} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Contact" field="contact" value={result.data.contact} isRequired={true} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Owner" field="owner_name" value={result.data.owner_name} isEditing={isEditingInfo} onChange={handleFieldChange} />
                 </div>
 
-                {/* Services & Offerings Tag Cloud */}
-                <div className="blueprint-services-box">
-                  <div className="services-box-header">
-                    <span className="services-box-title">
-                      Detected Offerings & Services ({result.data.products?.length || 0})
-                    </span>
-                  </div>
-
+                {/* Services */}
+                <div className="services-section">
+                  <span className="services-title">
+                    Services ({result.data.products?.length || 0})
+                  </span>
                   {result.data.products && result.data.products.length > 0 ? (
-                    <div className="services-chip-cloud">
+                    <div className="services-chips">
                       {result.data.products.map((item, index) => (
-                        <span className="service-chip" key={index}>
-                          {item}
-                        </span>
+                        <span className="service-tag" key={index}>{item}</span>
                       ))}
                     </div>
                   ) : (
-                    <p className="services-empty-note">
-                      No explicit services declared. MakeSite will automatically craft industry-tailored services!
+                    <p className="services-empty">
+                      No services detected. MakeSite will generate category-appropriate defaults.
                     </p>
                   )}
                 </div>
 
-                {/* Clarification Box if required field missing */}
+                {/* Clarification */}
                 {currentField && (
-                  <div className="clarification-drawer">
-                    <div className="clarification-drawer-header">
-                      <span className="clarification-pill">Required Detail</span>
+                  <div className="clarification-box">
+                    <div className="clarification-header">
+                      <span className="clarification-tag">Required</span>
                       <h4>{questions[currentField] || `Please specify ${currentField}`}</h4>
                     </div>
-
-                    <div className="clarification-drawer-input-row">
+                    <div className="clarification-input-row">
                       <input
                         type="text"
-                        className="clarification-input"
-                        placeholder="Type answer here..."
+                        className="text-input"
+                        placeholder="Type your answer..."
                         value={clarificationAnswer}
                         onChange={(e) => setClarificationAnswer(e.target.value)}
                         onKeyDown={(e) => {
@@ -725,11 +646,11 @@ function App() {
                       />
                       <button
                         type="button"
-                        className="btn-studio-primary clarification-submit-btn"
+                        className="btn-primary btn-save"
                         onClick={handleClarificationSubmit}
                         disabled={loading || !clarificationAnswer.trim()}
                       >
-                        {loading ? "Saving..." : "Save & Update →"}
+                        {loading ? "Saving..." : "Save →"}
                       </button>
                     </div>
                   </div>
@@ -737,115 +658,93 @@ function App() {
               </div>
             </div>
 
-            {/* Right Column: Blueprint Readiness & Synthesis Action */}
-            <div className="studio-col studio-spec-col">
-              <div className="studio-panel readiness-panel">
+            {/* Right: Readiness Sidebar */}
+            <div>
+              <div className="panel readiness-panel">
                 <div className="readiness-header">
-                  <div className="readiness-score-badge">
-                    <span className="score-num">{completeness}%</span>
-                    <span className="score-label">Profile Readiness</span>
+                  <div className="score-ring">
+                    <span className="score-value">{completeness}%</span>
                   </div>
-                  <h3 className="readiness-title">Blueprint Verified</h3>
+                  <h3 className="readiness-title">Readiness</h3>
                   <p className="readiness-desc">
-                    Your profile data is structured and ready for AI content synthesis. Our copywriting model will craft customized headlines, service features, and hero statements.
+                    Profile data structured and ready for content generation.
                   </p>
                 </div>
 
-                {/* Entity Checklist */}
-                <div className="entity-checklist">
-                  <div className="checklist-row">
-                    <span className={`check-icon ${result.data.business_name ? "is-valid" : ""}`}>
-                      {result.data.business_name ? "✓" : "○"}
-                    </span>
-                    <span className="check-text">Business Name: {result.data.business_name || "Missing"}</span>
+                <div className="checklist">
+                  <div className="check-item">
+                    <span className={`check-dot ${result.data.business_name ? "active" : ""}`} />
+                    <span>Name: {result.data.business_name || "Missing"}</span>
                   </div>
-
-                  <div className="checklist-row">
-                    <span className={`check-icon ${result.data.category ? "is-valid" : ""}`}>
-                      {result.data.category ? "✓" : "○"}
-                    </span>
-                    <span className="check-text">Category: {result.data.category || "Missing"}</span>
+                  <div className="check-item">
+                    <span className={`check-dot ${result.data.category ? "active" : ""}`} />
+                    <span>Category: {result.data.category || "Missing"}</span>
                   </div>
-
-                  <div className="checklist-row">
-                    <span className={`check-icon ${result.data.location ? "is-valid" : ""}`}>
-                      {result.data.location ? "✓" : "○"}
-                    </span>
-                    <span className="check-text">Location: {result.data.location || "Missing"}</span>
+                  <div className="check-item">
+                    <span className={`check-dot ${result.data.location ? "active" : ""}`} />
+                    <span>Location: {result.data.location || "Missing"}</span>
                   </div>
-
-                  <div className="checklist-row">
-                    <span className={`check-icon ${result.data.contact ? "is-valid" : "is-required"}`}>
-                      {result.data.contact ? "✓" : "!"}
-                    </span>
-                    <span className="check-text">
-                      Contact (Compulsory): {result.data.contact || <strong style={{ color: "#ef4444" }}>Missing — Required</strong>}
+                  <div className="check-item">
+                    <span className={`check-dot ${result.data.contact ? "active" : "missing"}`} />
+                    <span>
+                      Contact: {result.data.contact || <strong style={{ color: "var(--accent-secondary)" }}>Required</strong>}
                     </span>
                   </div>
                 </div>
 
                 {!result.data.contact && (
-                  <div style={{
-                    background: "rgba(239, 68, 68, 0.08)",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    borderRadius: "12px",
-                    padding: "16px",
-                    marginBottom: "20px",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f87171", fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>
-                      <span>⚠️</span> Contact Details are Compulsory
+                  <div className="warning-box">
+                    <div className="warning-title">
+                      <span>⚠️</span> Contact Required
                     </div>
-                    <p style={{ color: "#cbd5e1", fontSize: "12px", margin: "0 0 12px 0", lineHeight: "1.4" }}>
-                      Please provide an official phone number or email address to generate your static website.
+                    <p className="warning-text">
+                      Enter a phone number or email to continue.
                     </p>
                     <button
                       type="button"
-                      className="btn-studio-secondary"
-                      style={{ width: "100%", borderColor: "rgba(239, 68, 68, 0.4)", color: "#fca5a5" }}
+                      className="btn-secondary"
                       onClick={() => setCurrentField("contact")}
                     >
-                      + Enter Contact Details
+                      + Add Contact
                     </button>
                   </div>
                 )}
 
-                {/* Synthesis Action Button */}
-                <div className="readiness-actions">
+                <div className="action-group">
                   <button
                     type="button"
-                    className="btn-studio-primary btn-synthesize"
+                    className="btn-primary btn-full"
                     onClick={generateWebsiteContent}
                     disabled={loading || !!currentField || !result.data.contact}
                     id="generate-website-btn"
                   >
                     {loading ? (
-                      <span className="btn-loading-state">
-                        <span className="studio-spinner" />
-                        {loadingStage || "Synthesizing website copy..."}
+                      <span className="btn-content">
+                        <span className="spinner" />
+                        <span>{loadingStage || "Generating..."}</span>
                       </span>
                     ) : (
-                      <span className="btn-idle-state">
-                        <span>Continue to Template Architecture</span>
+                      <span className="btn-content">
+                        <span>Continue to Templates</span>
                         <span className="btn-arrow">→</span>
                       </span>
                     )}
                   </button>
 
-                  <div className="secondary-action-row">
+                  <div className="btn-row">
                     <button
                       type="button"
-                      className="btn-studio-secondary"
+                      className="btn-secondary"
                       onClick={() => {
                         setResult(null);
                         setCurrentField(null);
                       }}
                     >
-                      ← Edit Prompt Brief
+                      ← Edit Brief
                     </button>
-
                     <button
                       type="button"
-                      className="btn-studio-secondary btn-danger-soft"
+                      className="btn-secondary"
                       onClick={handleStartAgain}
                     >
                       ↺ Start Over
@@ -861,43 +760,26 @@ function App() {
   );
 }
 
-// --------------------------------------------------------------------
-// Structured Blueprint Field Component
-// --------------------------------------------------------------------
-function BlueprintField({ label, field, value, icon, isRequired, isEditing, onChange }) {
+// Blueprint Field Component
+function BlueprintField({ label, field, value, isRequired, isEditing, onChange }) {
   return (
-    <div className={`blueprint-field-card ${isEditing ? "is-editing" : ""} ${isRequired && !value ? "field-required-missing" : ""}`}>
-      <div className="field-card-top">
-        <span className="field-icon">{icon}</span>
+    <div className={`field-card ${isEditing ? "editing" : ""} ${isRequired && !value ? "required-missing" : ""}`}>
+      <div className="field-header">
         <span className="field-label">{label}</span>
-        {isRequired && (
-          <span style={{
-            fontSize: "10px",
-            background: "rgba(239, 68, 68, 0.15)",
-            border: "1px solid rgba(239, 68, 68, 0.35)",
-            color: "#fca5a5",
-            padding: "2px 6px",
-            borderRadius: "4px",
-            fontWeight: 700,
-            marginLeft: "auto"
-          }}>
-            Compulsory
-          </span>
-        )}
+        {isRequired && <span className="field-required">Required</span>}
       </div>
-
-      <div className="field-card-body">
+      <div>
         {isEditing ? (
           <input
             type="text"
-            className="field-edit-input"
+            className="field-input"
             value={value || ""}
             placeholder={`Enter ${label.toLowerCase()}...`}
             onChange={(e) => onChange(field, e.target.value)}
           />
         ) : (
-          <div className={`field-value-text ${!value ? "is-empty" : ""}`}>
-            {value || (isRequired ? "⚠️ Contact details required" : "Not specified")}
+          <div className={`field-value ${!value ? "empty" : ""}`}>
+            {value || (isRequired ? "Required — please enter" : "Not specified")}
           </div>
         )}
       </div>
