@@ -180,6 +180,26 @@ SHARED_SMOOTH_SCROLL_CSS = """
       60% { transform: scale(1.01); outline: 2px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
       100% { transform: scale(1); outline: 3px solid transparent; }
     }
+    .faqs-section {
+      margin: 60px 0;
+    }
+    .faq-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 18px 24px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .faq-q {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .faq-a {
+      font-size: 0.95rem;
+      opacity: 0.85;
+      line-height: 1.6;
+    }
 """
 
 
@@ -611,6 +631,7 @@ def build_modern_dark(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     </section>
 
     {"<section><h2 class='section-title'>Why Choose Us</h2><div class='features-grid'>" + features_html + "</div></section>" if features_html else ""}
+    {"<section class='faqs-section'><h2 class='section-title' style='margin-bottom: 24px;'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
 
     <div class="contact-card" id="contact">
       <h2>Visit & Contact Us</h2>
@@ -649,6 +670,7 @@ def build_minimal_clean(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     cta = sanitize_cta(content.get("cta"), default="Inquire Now")
     services_html = generate_services_cards(content.get("services", []), "minimal-clean")
     features_html = generate_features_cards(content.get("features", []))
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -877,6 +899,8 @@ def build_minimal_clean(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
       </div>
     </section>
 
+    {"<section class='services-section' style='margin-top: 50px;'><h2 class='sec-head'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
+
     <section class="services-section" id="contact" style="margin-top: 60px;">
       <h2 class="sec-head">Direct Contact & Inquiries</h2>
       <p style="color: var(--text-muted); margin-bottom: 20px;">Reach our team directly or visit us during standard hours.</p>
@@ -922,6 +946,7 @@ def build_vibrant_gradient(b_data: Dict[str, Any], content: Dict[str, Any]) -> s
     cta = sanitize_cta(content.get("cta"), default="Connect With Us")
     services_html = generate_services_cards(content.get("services", []), "vibrant-gradient")
     features_html = generate_features_cards(content.get("features", []))
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -1174,6 +1199,8 @@ def build_vibrant_gradient(b_data: Dict[str, Any], content: Dict[str, Any]) -> s
       </div>
     </section>
 
+    {"<section class='faqs-section' style='margin: 48px 0;'><h2 style='font-size: 2.2rem; text-align: center; font-weight: 800; margin-bottom: 24px;'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
+
     <div class="about-card" id="contact" style="border-color:var(--pink); margin-top:60px;">
       <span class="sparkle-tag">✨ Direct Connection</span>
       <h2>Visit & Connect with {b_name}</h2>
@@ -1219,6 +1246,7 @@ def build_corporate_pro(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     cta = sanitize_cta(content.get("cta"), default="Schedule Consultation")
     services_html = generate_services_cards(content.get("services", []), "corporate-pro")
     features_html = generate_features_cards(content.get("features", []))
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -1493,6 +1521,8 @@ def build_corporate_pro(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     </div>
   </section>
 
+  {"<section class='services-sec' style='padding: 20px 0;'><div class='container'><h2 class='sec-title'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></div></section>" if faqs_html else ""}
+
   <section class="services-sec" id="contact" style="padding: 20px 0;">
     <div class="container">
       <div class="stats-bar" style="background:#ffffff; border:1px solid #cbd5e1; border-top:4px solid var(--navy); border-radius:12px; padding:36px; margin:20px 0;">
@@ -1532,6 +1562,7 @@ def build_warm_artisan(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     about = escape(content.get("about") or "")
     cta = sanitize_cta(content.get("cta"), default="Visit & Connect With Us")
     services_html = generate_services_cards(content.get("services", []), "warm-artisan")
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -1758,6 +1789,8 @@ def build_warm_artisan(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
       </div>
     </section>
 
+    {"<section style='margin: 60px 0;'><h2 style='font-family: serif; font-size: 2.2rem; text-align: center; color: var(--brown); margin-bottom: 24px;'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
+
     <section id="contact" style="margin: 80px 0; background: #fef3c7; border: 2px solid #d97706; border-radius: 20px; padding: 40px; text-align: center;">
       <h2 style="font-family: 'Playfair Display', serif; font-size: 2.2rem; color: #78350f; margin-bottom: 12px;">Visit Our House</h2>
       <p style="color: #92400e; font-size: 1.1rem; margin-bottom: 24px;">We are delighted to welcome guests across {location}. Check our schedule below:</p>
@@ -1792,6 +1825,7 @@ def build_emerald_wellness(b_data: Dict[str, Any], content: Dict[str, Any]) -> s
     about = escape(content.get("about") or "")
     cta = sanitize_cta(content.get("cta"), default="Inquire & Visit Us")
     services_html = generate_services_cards(content.get("services", []), "emerald-wellness")
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -2018,6 +2052,8 @@ def build_emerald_wellness(b_data: Dict[str, Any], content: Dict[str, Any]) -> s
       </div>
     </section>
 
+    {"<section style='margin: 50px 0;'><h2 style='font-size: 2.2rem; text-align: center; color: var(--emerald-dark); font-weight: 800; margin-bottom: 24px;'>Frequently Asked Questions</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
+
     <section id="contact" style="margin: 70px 0; background: #ffffff; border: 2px solid var(--emerald); border-radius: 24px; padding: 40px; text-align: center; box-shadow: 0 10px 30px rgba(5, 150, 105, 0.08);">
       <span class="zen-tag">SANCTUARY INQUIRIES</span>
       <h2 style="font-size: 2rem; color: var(--emerald-dark); margin-bottom: 16px;">Connect with {b_name}</h2>
@@ -2053,6 +2089,7 @@ def build_tech_bold(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
     about = escape(content.get("about") or "")
     cta = sanitize_cta(content.get("cta"), default="Contact Our Team")
     services_html = generate_services_cards(content.get("services", []), "tech-bold")
+    faqs_html = generate_faqs_cards(content.get("faqs", []))
 
     contact_link = "#contact"
 
@@ -2275,6 +2312,8 @@ def build_tech_bold(b_data: Dict[str, Any], content: Dict[str, Any]) -> str:
         {services_html}
       </div>
     </section>
+
+    {"<section style='margin: 60px 0;'><h2 style='font-size: 1.8rem; color: var(--lime); margin-bottom: 20px; font-family: monospace;'>[FREQUENTLY ASKED QUESTIONS]</h2><div class='faqs-list'>" + faqs_html + "</div></section>" if faqs_html else ""}
 
     <section id="contact" style="margin: 80px 0; background: #0d0d0d; border: 2px solid var(--lime); padding: 36px; border-radius: 8px;">
       <div class="sys-status" style="margin-bottom: 12px;">● DIRECT COMMS PORT OPEN</div>

@@ -183,6 +183,20 @@ class HealthResponse(BaseModel):
     model_fallback: str
 
 
+class RephraseRequest(BaseModel):
+    section: str = Field(..., description="Target section to rephrase, e.g. hero_title, hero_description, about, cta, service_name, service_description")
+    text: str = Field(..., min_length=1, max_length=2000, description="Current text to polish or rewrite")
+    business_name: Optional[str] = None
+    category: Optional[str] = None
+    style: Optional[str] = Field(default="modern and punchy", description="Requested tone or style")
+
+
+class RephraseResponse(BaseModel):
+    original: str
+    improved: str
+    alternatives: List[str] = Field(default_factory=list)
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None

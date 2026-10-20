@@ -305,6 +305,17 @@ function App() {
     );
   }
 
+  const handleUpdateBusinessData = (newData) => {
+    setResult((prev) => ({
+      ...prev,
+      data: newData,
+    }));
+  };
+
+  const handleUpdateWebsiteContent = (newContent) => {
+    setWebsiteContent(newContent);
+  };
+
   // --------------------------------
   // View 4: Live Website Preview
   // --------------------------------
@@ -314,6 +325,8 @@ function App() {
         businessData={result.data}
         websiteContent={websiteContent}
         template={selectedTemplate}
+        onUpdateBusinessData={handleUpdateBusinessData}
+        onUpdateWebsiteContent={handleUpdateWebsiteContent}
         onBack={() => {
           setShowWebsite(false);
           setShowTemplates(true);

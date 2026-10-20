@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./WebsitePreview.css";
 import JSZip from "jszip";
 
@@ -16,6 +16,8 @@ function WebsitePreview({
   businessData,
   websiteContent,
   template = "modern-dark",
+  onUpdateBusinessData,
+  onUpdateWebsiteContent,
   onBack,
 }) {
   const [activeTemplate, setActiveTemplate] = useState(template);
@@ -23,21 +25,48 @@ function WebsitePreview({
   const [viewMode, setViewMode] = useState("preview"); // 'preview' | 'code'
   const [downloading, setDownloading] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
   const [serverHtml, setServerHtml] = useState("");
   const [htmlCache, setHtmlCache] = useState({});
 
-  const businessName = businessData?.business_name || "Your Business";
-  const category = businessData?.category || "Professional Services";
-  const location = businessData?.location || "Regional City";
-  const hours = businessData?.hours || "Regular Operating Hours";
-  const contact = businessData?.contact || "";
-  const products = businessData?.products || [];
+  // ----------------------------------------------------
+  // Interactive Editing State
+  // ----------------------------------------------------
+  const [isEditing, setIsEditing] = useState(false);
+  const [activeEditorTab, setActiveEditorTab] = useState("hero"); // 'hero' | 'about' | 'services' | 'features' | 'faqs' | 'contact'
+  const [polishingField, setPolishingField] = useState(null);
+  const [polishResult, setPolishResult] = useState(null); // { field, improved, alternatives }
+
+  // Initial and editable data state
+  const [currentBusinessData, setCurrentBusinessData] = useState(() => ({ ...(businessData || {}) }));
+  const [currentContent, setCurrentContent] = useState(() => ({ ...(websiteContent || {}) }));
+
+  // Keep permanent backup of initial AI generated content for "Reset"
+  const initialDataRef = useRef(JSON.parse(JSON.stringify(businessData || {})));
+  const initialContentRef = useRef(JSON.parse(JSON.stringify(websiteContent || {})));
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
+
+  // ----------------------------------------------------
+  // Extract and Sanitize Fields
+  // ----------------------------------------------------
+  const businessName = currentBusinessData?.business_name || "Your Business";
+  const category = currentBusinessData?.category || "Professional Services";
+  const location = currentBusinessData?.location || "Regional City";
+  const hours = currentBusinessData?.hours || "Regular Operating Hours";
+  const contact = currentBusinessData?.contact || "";
+  const products = currentBusinessData?.products || [];
 
   // Content fallbacks
-  const heroTitle = websiteContent?.hero_title || `Premier ${category} in ${location}`;
-  const heroDesc = websiteContent?.hero_description || `Delivering trusted, top-tier ${category.lower ? category.toLowerCase() : category} solutions designed to exceed your expectations.`;
-  const aboutText = websiteContent?.about || `At ${businessName}, we take pride in delivering honest, reliable, and high-impact services across ${location}. Founded on trust and customer satisfaction.`;
-  
+  const heroTitle = currentContent?.hero_title || `Premier ${category} in ${location}`;
+  const heroDesc = currentContent?.hero_description || `Delivering trusted, top-tier ${typeof category === "string" ? category.toLowerCase() : category} solutions designed to exceed your expectations.`;
+  const aboutText = currentContent?.about || `At ${businessName}, we take pride in delivering honest, reliable, and high-impact services across ${location}. Founded on trust and customer satisfaction.`;
+
   const sanitizeCta = (text, fallback = "Connect With Us Today") => {
     if (!text || typeof text !== "string" || !text.trim()) return fallback;
     const forbidden = [
@@ -54,10 +83,10 @@ function WebsitePreview({
     return text.trim();
   };
 
-  const cta = sanitizeCta(websiteContent?.cta, "Connect With Us Today");
+  const cta = sanitizeCta(currentContent?.cta, "Connect With Us Today");
 
-  const services = (websiteContent?.services && websiteContent.services.length > 0)
-    ? websiteContent.services
+  const services = (currentContent?.services && currentContent.services.length > 0)
+    ? currentContent.services
     : products.length > 0
     ? products.map((p) => ({
         name: typeof p === "string" ? p : "Service",
@@ -69,44 +98,226 @@ function WebsitePreview({
         { name: "Dedicated Support", description: "Customer-first assistance whenever you need it." },
       ];
 
-  const features = websiteContent?.features || [
-    { title: "Trusted Reliability", description: "Consistent, dependable service you can always rely on." },
-    { title: "Community Focused", description: `Proudly serving customers across ${location}.` },
-    { title: "Direct Communication", description: "Transparent, honest, and responsive client care." },
-  ];
+  const features = (currentContent?.features && currentContent.features.length > 0)
+    ? currentContent.features
+    : [
+        { title: "Trusted Reliability", description: "Consistent, dependable service you can always rely on." },
+        { title: "Community Focused", description: `Proudly serving customers across ${location}.` },
+        { title: "Direct Communication", description: "Transparent, honest, and responsive client care." },
+      ];
 
-  const faqs = websiteContent?.faqs || [
-    { question: `Where is ${businessName} located?`, answer: `We are located in ${location}. Contact us anytime during: ${hours}.` },
-    { question: "How do I get in touch?", answer: `You can reach out directly via ${contact || "our contact options"} or visit us during operating hours.` },
-  ];
+  const faqs = (currentContent?.faqs && currentContent.faqs.length > 0)
+    ? currentContent.faqs
+    : [
+        { question: `Where is ${businessName} located?`, answer: `We are located in ${location}. Contact us anytime during: ${hours}.` },
+        { question: "How do I get in touch?", answer: `You can reach out directly via ${contact || "our contact options"} or visit us during operating hours.` },
+      ];
 
-  // Fetch server-rendered HTML for pixel-perfect standalone export
+  // ----------------------------------------------------
+  // Update State Handlers
+  // ----------------------------------------------------
+  const handleUpdateDataField = (field, value) => {
+    setCurrentBusinessData((prev) => {
+      const next = { ...prev, [field]: value };
+      if (onUpdateBusinessData) onUpdateBusinessData(next);
+      return next;
+    });
+    setHtmlCache({});
+  };
+
+  const handleUpdateContentField = (field, value) => {
+    setCurrentContent((prev) => {
+      const next = { ...prev, [field]: value };
+      if (onUpdateWebsiteContent) onUpdateWebsiteContent(next);
+      return next;
+    });
+    setHtmlCache({});
+  };
+
+  // Services
+  const handleUpdateService = (idx, key, value) => {
+    const list = [...services];
+    list[idx] = { ...list[idx], [key]: value };
+    handleUpdateContentField("services", list);
+  };
+
+  const handleAddService = () => {
+    const list = [...services];
+    list.push({
+      name: `Specialized ${category} Service`,
+      description: "Dedicated, premium quality solutions delivered by experienced professionals.",
+    });
+    handleUpdateContentField("services", list);
+    showToast("✓ Added new service");
+  };
+
+  const handleDeleteService = (idx) => {
+    if (services.length <= 1) {
+      alert("A website should have at least one service offering.");
+      return;
+    }
+    const list = services.filter((_, i) => i !== idx);
+    handleUpdateContentField("services", list);
+    showToast("🗑️ Removed service");
+  };
+
+  // Features
+  const handleUpdateFeature = (idx, key, value) => {
+    const list = [...features];
+    list[idx] = { ...list[idx], [key]: value };
+    handleUpdateContentField("features", list);
+  };
+
+  const handleAddFeature = () => {
+    const list = [...features];
+    list.push({
+      title: "Guaranteed Satisfaction",
+      description: "Unwavering commitment to client success and transparent communication.",
+    });
+    handleUpdateContentField("features", list);
+    showToast("✓ Added new feature highlight");
+  };
+
+  const handleDeleteFeature = (idx) => {
+    const list = features.filter((_, i) => i !== idx);
+    handleUpdateContentField("features", list);
+    showToast("🗑️ Removed highlight");
+  };
+
+  // FAQs
+  const handleUpdateFaq = (idx, key, value) => {
+    const list = [...faqs];
+    list[idx] = { ...list[idx], [key]: value };
+    handleUpdateContentField("faqs", list);
+  };
+
+  const handleAddFaq = () => {
+    const list = [...faqs];
+    list.push({
+      question: "How do I book an appointment or consultation?",
+      answer: `Reach out to our team at ${contact || "our office"} or visit us during open hours.`,
+    });
+    handleUpdateContentField("faqs", list);
+    showToast("✓ Added new FAQ");
+  };
+
+  const handleDeleteFaq = (idx) => {
+    const list = faqs.filter((_, i) => i !== idx);
+    handleUpdateContentField("faqs", list);
+    showToast("🗑️ Removed FAQ");
+  };
+
+  // Reset to AI original
+  const handleResetToOriginal = () => {
+    if (window.confirm("Revert all customizations back to the initial AI-generated version?")) {
+      const origData = JSON.parse(JSON.stringify(initialDataRef.current));
+      const origContent = JSON.parse(JSON.stringify(initialContentRef.current));
+      setCurrentBusinessData(origData);
+      setCurrentContent(origContent);
+      if (onUpdateBusinessData) onUpdateBusinessData(origData);
+      if (onUpdateWebsiteContent) onUpdateWebsiteContent(origContent);
+      setHtmlCache({});
+      setPolishResult(null);
+      showToast("↺ Reset back to initial AI version!");
+    }
+  };
+
+  // ----------------------------------------------------
+  // AI Polish Assist
+  // ----------------------------------------------------
+  const handleAiPolish = async (sectionKey, currentVal, tone = "modern and punchy") => {
+    if (!currentVal || !String(currentVal).trim()) {
+      showToast("⚠️ Please enter some text first to polish.");
+      return;
+    }
+    setPolishingField(sectionKey);
+    setPolishResult(null);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/rephrase-section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          section: sectionKey,
+          text: currentVal,
+          business_name: businessName,
+          category: category,
+          style: tone,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const allSuggestions = [data.improved, ...(data.alternatives || [])].filter(
+          (item, idx, self) => item && typeof item === "string" && self.indexOf(item) === idx
+        );
+
+        setPolishResult({
+          field: sectionKey,
+          suggestions: allSuggestions,
+        });
+        showToast("✨ AI Suggestions ready! Choose below.");
+      } else {
+        showToast("⚠️ AI Polish request failed");
+      }
+    } catch (err) {
+      console.warn("AI Polish error:", err);
+      showToast("⚠️ Could not reach AI polish service");
+    } finally {
+      setPolishingField(null);
+    }
+  };
+
+  const applyPolishSuggestion = (fieldKey, suggestedText) => {
+    if (fieldKey === "business_name" || fieldKey === "category" || fieldKey === "location" || fieldKey === "hours" || fieldKey === "contact") {
+      handleUpdateDataField(fieldKey, suggestedText);
+    } else {
+      handleUpdateContentField(fieldKey, suggestedText);
+    }
+    setPolishResult(null);
+    showToast("✓ Applied AI suggestion!");
+  };
+
+  // ----------------------------------------------------
+  // Fetch Server-Rendered HTML (Debounced & Cached)
+  // ----------------------------------------------------
   useEffect(() => {
     let isCurrent = true;
-    fetch("http://127.0.0.1:8000/generate-html", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        business_data: businessData,
-        content: websiteContent || {},
-        template_id: activeTemplate,
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isCurrent && data && data.html) {
-          setServerHtml(data.html);
-          setHtmlCache((prev) => ({ ...prev, [activeTemplate]: data.html }));
-        }
+    const timer = setTimeout(() => {
+      fetch("http://127.0.0.1:8000/generate-html", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_data: currentBusinessData,
+          content: {
+            ...currentContent,
+            hero_title: heroTitle,
+            hero_description: heroDesc,
+            about: aboutText,
+            cta: cta,
+            services: services,
+            features: features,
+            faqs: faqs,
+          },
+          template_id: activeTemplate,
+        }),
       })
-      .catch((err) => {
-        console.warn("Could not fetch server-rendered HTML:", err);
-      });
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (isCurrent && data && data.html) {
+            setServerHtml(data.html);
+            setHtmlCache((prev) => ({ ...prev, [activeTemplate]: data.html }));
+          }
+        })
+        .catch((err) => {
+          console.warn("Could not fetch server-rendered HTML:", err);
+        });
+    }, 400);
 
     return () => {
       isCurrent = false;
+      clearTimeout(timer);
     };
-  }, [businessData, websiteContent, activeTemplate]);
+  }, [currentBusinessData, currentContent, activeTemplate, heroTitle, heroDesc, aboutText, cta, services, features, faqs]);
 
   // Clean filename generator
   const getSafeFileName = (name) => {
@@ -117,11 +328,10 @@ function WebsitePreview({
       .toLowerCase();
   };
 
-  // Generate complete HTML backup if server fetch failed
+  // Fallback complete HTML if backend is offline
   const getCompleteHtml = () => {
     if (serverHtml) return serverHtml;
 
-    // Fallback standalone HTML
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -198,7 +408,7 @@ function WebsitePreview({
 </html>`;
   };
 
-  // Fetch freshest server HTML for the selected template or fallback
+  // Fetch freshest server HTML or fallback
   const getOrFetchHtml = async () => {
     if (htmlCache[activeTemplate] && htmlCache[activeTemplate].trim()) {
       return htmlCache[activeTemplate];
@@ -209,8 +419,17 @@ function WebsitePreview({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          business_data: businessData,
-          content: websiteContent || {},
+          business_data: currentBusinessData,
+          content: {
+            ...currentContent,
+            hero_title: heroTitle,
+            hero_description: heroDesc,
+            about: aboutText,
+            cta: cta,
+            services: services,
+            features: features,
+            faqs: faqs,
+          },
           template_id: activeTemplate,
         }),
       });
@@ -247,6 +466,7 @@ function WebsitePreview({
 ${businessName.toUpperCase()} — OFFICIAL WEBSITE
 ============================================================
 Generated autonomously by MakeSite AI.
+Customized & Crafted in MakeSite Studio.
 Architecture: ${activeTemplate}
 Category: ${category}
 Location: ${location}
@@ -272,6 +492,7 @@ Built with MakeSite AI Engine.
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      showToast("✓ ZIP package exported successfully!");
     } catch (err) {
       console.error("ZIP export failed:", err);
       alert("Export failed. You can also use 'Copy HTML' to copy the code directly.");
@@ -293,6 +514,7 @@ Built with MakeSite AI Engine.
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      showToast("✓ Saved standalone index.html");
     } catch (err) {
       console.error("HTML download failed:", err);
     }
@@ -305,6 +527,7 @@ Built with MakeSite AI Engine.
       await navigator.clipboard.writeText(htmlContent);
       setCopiedToast(true);
       setTimeout(() => setCopiedToast(false), 2500);
+      showToast("✓ Standalone HTML copied to clipboard!");
     } catch (err) {
       console.error("Copy failed:", err);
     }
@@ -322,8 +545,23 @@ Built with MakeSite AI Engine.
     }
   };
 
+  // Focus a specific field in the editor panel when user clicks an inline element
+  const handleFocusFieldFromCanvas = (tabName, fieldId) => {
+    if (!isEditing) setIsEditing(true);
+    setActiveEditorTab(tabName);
+    setTimeout(() => {
+      const input = document.getElementById(fieldId);
+      if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+        input.classList.add("field-spotlight");
+        setTimeout(() => input.classList.remove("field-spotlight"), 1800);
+      }
+    }, 150);
+  };
+
   return (
-    <div className="preview-viewport-shell">
+    <div className={`preview-viewport-shell ${isEditing ? "is-editing-mode" : ""}`}>
       {/* ============================================================
           TOP CONTROL TOOLBAR
       ============================================================ */}
@@ -351,6 +589,27 @@ Built with MakeSite AI Engine.
               ))}
             </select>
           </div>
+
+          <div className="tb-divider"></div>
+
+          {/* EDIT MODE TOGGLE BUTTON */}
+          <button
+            className={`tb-btn tb-edit-toggle ${isEditing ? "active" : ""}`}
+            onClick={() => setIsEditing(!isEditing)}
+            title={isEditing ? "Close visual editor and view website" : "Edit website text, services, and brand details"}
+            id="toggle-edit-mode-btn"
+          >
+            {isEditing ? (
+              <>
+                <span className="tb-edit-dot">●</span>
+                <span>👁️ Close Editor</span>
+              </>
+            ) : (
+              <>
+                <span>✏️ Edit Website</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Center: Device Viewport Switcher */}
@@ -397,6 +656,16 @@ Built with MakeSite AI Engine.
 
         {/* Right: Export & Copy Actions */}
         <div className="toolbar-right">
+          {isEditing && (
+            <button
+              className="tb-btn tb-reset"
+              onClick={handleResetToOriginal}
+              title="Revert all changes back to initial AI generation"
+            >
+              ↺ Reset
+            </button>
+          )}
+
           <button className="tb-btn tb-copy" onClick={handleCopyCode} title="Copy standalone HTML">
             📋 Copy HTML
           </button>
@@ -416,66 +685,505 @@ Built with MakeSite AI Engine.
         </div>
       </header>
 
-      {/* Copy Toast Alert */}
-      {copiedToast && (
+      {/* Copy / Action Toast Alert */}
+      {(copiedToast || toastMessage) && (
         <div className="copy-toast-banner">
-          ✓ Standalone HTML copied to clipboard!
+          {toastMessage || "✓ Standalone HTML copied to clipboard!"}
         </div>
       )}
 
       {/* ============================================================
-          MAIN PREVIEW CANVAS AREA
+          MAIN WORKSPACE LAYOUT (SIDEBAR EDITOR + PREVIEW CANVAS)
       ============================================================ */}
-      <main className="preview-canvas-container">
-        {viewMode === "code" ? (
-          <div className="code-viewer-panel">
-            <div className="code-viewer-header">
-              <span>Standalone Production HTML ({serverHtml.length} characters)</span>
-              <button className="tb-btn tb-copy-small" onClick={handleCopyCode}>
-                Copy Entire Code
+      <div className={`preview-workspace-layout ${isEditing ? "editor-open" : ""}`}>
+        {/* ============================================================
+            CUSTOMIZER & CONTENT EDITOR SIDEBAR (When Edit Mode Active)
+        ============================================================ */}
+        {isEditing && (
+          <aside className="site-editor-sidebar" id="site-editor-sidebar">
+            <div className="editor-sidebar-header">
+              <div className="editor-title-wrap">
+                <h3>✏️ Website Editor</h3>
+                <span className="live-sync-indicator">
+                  <span className="live-pulse-dot"></span> Live Sync
+                </span>
+              </div>
+              <div className="editor-quick-actions">
+                <button
+                  type="button"
+                  className="editor-btn-secondary"
+                  onClick={handleResetToOriginal}
+                  title="Revert all fields back to initial AI generated content"
+                >
+                  ↺ Reset
+                </button>
+                <button
+                  type="button"
+                  className="editor-btn-primary"
+                  onClick={() => setIsEditing(false)}
+                  title="Finish editing"
+                >
+                  ✓ Done
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="editor-nav-tabs">
+              <button
+                type="button"
+                className={`tab-btn ${activeEditorTab === "hero" ? "active" : ""}`}
+                onClick={() => setActiveEditorTab("hero")}
+              >
+                🏷️ Hero & Brand
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeEditorTab === "about" ? "active" : ""}`}
+                onClick={() => setActiveEditorTab("about")}
+              >
+                📖 About
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeEditorTab === "services" ? "active" : ""}`}
+                onClick={() => setActiveEditorTab("services")}
+              >
+                ⚡ Services ({services.length})
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeEditorTab === "features" ? "active" : ""}`}
+                onClick={() => setActiveEditorTab("features")}
+              >
+                ✨ Highlights & FAQs
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeEditorTab === "contact" ? "active" : ""}`}
+                onClick={() => setActiveEditorTab("contact")}
+              >
+                📍 Contact & Hours
               </button>
             </div>
-            <pre className="code-viewer-content">
-              <code>{getCompleteHtml()}</code>
-            </pre>
-          </div>
-        ) : (
-          <div className={`device-frame device-frame-${deviceMode}`}>
-            {deviceMode !== "desktop" && (
-              <div className="device-notch-bar">
-                <span className="notch-camera"></span>
-                <span className="notch-speaker"></span>
-              </div>
-            )}
 
-            {/* Template Render Container */}
-            <div className={`rendered-website template-skin-${activeTemplate}`}>
-              {renderTemplateSkin({
-                templateId: activeTemplate,
-                businessName,
-                category,
-                location,
-                hours,
-                contact,
-                heroTitle,
-                heroDesc,
-                aboutText,
-                cta,
-                services,
-                features,
-                faqs,
-                onContactClick: handleContactClick,
-              })}
+            {/* Editor Scrollable Body */}
+            <div className="editor-scroll-body">
+              {/* ------------------------------------
+                  TAB 1: HERO & BRAND
+              ------------------------------------ */}
+              {activeEditorTab === "hero" && (
+                <div className="editor-tab-pane">
+                  <div className="editor-field-card">
+                    <h4>Brand Identity</h4>
+
+                    <div className="editor-input-group">
+                      <label htmlFor="edit-business-name">Official Business Name</label>
+                      <input
+                        id="edit-business-name"
+                        type="text"
+                        value={businessName}
+                        onChange={(e) => handleUpdateDataField("business_name", e.target.value)}
+                        placeholder="e.g. Bean & Bloom Coffee"
+                      />
+                    </div>
+
+                    <div className="editor-input-group">
+                      <label htmlFor="edit-category">Category / Industry Tag</label>
+                      <input
+                        id="edit-category"
+                        type="text"
+                        value={category}
+                        onChange={(e) => handleUpdateDataField("category", e.target.value)}
+                        placeholder="e.g. Artisan Cafe & Roastery"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="editor-field-card">
+                    <div className="field-card-header">
+                      <h4>Hero Section Headline</h4>
+                      <button
+                        type="button"
+                        className="btn-ai-polish"
+                        onClick={() => handleAiPolish("hero_title", heroTitle, "punchy, memorable, and modern")}
+                        disabled={polishingField === "hero_title"}
+                      >
+                        {polishingField === "hero_title" ? "✨ Polishing..." : "✨ AI Polish"}
+                      </button>
+                    </div>
+
+                    <div className="editor-input-group">
+                      <input
+                        id="edit-hero-title"
+                        type="text"
+                        value={heroTitle}
+                        onChange={(e) => handleUpdateContentField("hero_title", e.target.value)}
+                        placeholder="e.g. Handcrafted Espresso & Organic Artisan Pastries"
+                      />
+                    </div>
+
+                    {polishResult && polishResult.field === "hero_title" && (
+                      <div className="ai-suggestions-panel">
+                        <span className="suggestions-badge">✨ AI Suggestions</span>
+                        <div className="suggestions-list">
+                          {polishResult.suggestions.map((sug, sIdx) => (
+                            <div key={sIdx} className="suggestion-item" onClick={() => applyPolishSuggestion("hero_title", sug)}>
+                              <span>{sug}</span>
+                              <button type="button" className="btn-apply-suggestion">Use</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="field-card-header" style={{ marginTop: "16px" }}>
+                      <h4>Hero Subtitle / Description</h4>
+                      <button
+                        type="button"
+                        className="btn-ai-polish"
+                        onClick={() => handleAiPolish("hero_description", heroDesc, "compelling value proposition")}
+                        disabled={polishingField === "hero_description"}
+                      >
+                        {polishingField === "hero_description" ? "✨ Polishing..." : "✨ AI Polish"}
+                      </button>
+                    </div>
+
+                    <div className="editor-input-group">
+                      <textarea
+                        id="edit-hero-desc"
+                        rows={3}
+                        value={heroDesc}
+                        onChange={(e) => handleUpdateContentField("hero_description", e.target.value)}
+                        placeholder="e.g. Delivering trusted, top-tier solutions designed to exceed your expectations."
+                      />
+                    </div>
+
+                    {polishResult && polishResult.field === "hero_description" && (
+                      <div className="ai-suggestions-panel">
+                        <span className="suggestions-badge">✨ AI Suggestions</span>
+                        <div className="suggestions-list">
+                          {polishResult.suggestions.map((sug, sIdx) => (
+                            <div key={sIdx} className="suggestion-item" onClick={() => applyPolishSuggestion("hero_description", sug)}>
+                              <span>{sug}</span>
+                              <button type="button" className="btn-apply-suggestion">Use</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="editor-input-group" style={{ marginTop: "16px" }}>
+                      <label htmlFor="edit-hero-cta">CTA Button Text (Informational)</label>
+                      <input
+                        id="edit-hero-cta"
+                        type="text"
+                        value={cta}
+                        onChange={(e) => handleUpdateContentField("cta", e.target.value)}
+                        placeholder="e.g. Connect With Our Team"
+                      />
+                      <small className="field-hint">Smoothly scrolls visitors directly to contact & hours.</small>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------------------------
+                  TAB 2: ABOUT STORY
+              ------------------------------------ */}
+              {activeEditorTab === "about" && (
+                <div className="editor-tab-pane">
+                  <div className="editor-field-card">
+                    <div className="field-card-header">
+                      <h4>Business Story & Mission</h4>
+                      <button
+                        type="button"
+                        className="btn-ai-polish"
+                        onClick={() => handleAiPolish("about", aboutText, "warm, authentic, and trust-building")}
+                        disabled={polishingField === "about"}
+                      >
+                        {polishingField === "about" ? "✨ Polishing..." : "✨ AI Polish"}
+                      </button>
+                    </div>
+
+                    <div className="editor-input-group">
+                      <textarea
+                        id="edit-about-text"
+                        rows={6}
+                        value={aboutText}
+                        onChange={(e) => handleUpdateContentField("about", e.target.value)}
+                        placeholder="Tell your story, your commitment to quality, and community trust..."
+                      />
+                    </div>
+
+                    {polishResult && polishResult.field === "about" && (
+                      <div className="ai-suggestions-panel">
+                        <span className="suggestions-badge">✨ AI Suggestions</span>
+                        <div className="suggestions-list">
+                          {polishResult.suggestions.map((sug, sIdx) => (
+                            <div key={sIdx} className="suggestion-item" onClick={() => applyPolishSuggestion("about", sug)}>
+                              <span>{sug}</span>
+                              <button type="button" className="btn-apply-suggestion">Use</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------------------------
+                  TAB 3: SERVICES
+              ------------------------------------ */}
+              {activeEditorTab === "services" && (
+                <div className="editor-tab-pane">
+                  <div className="pane-header-row">
+                    <h4>Service Capabilities ({services.length})</h4>
+                    <button type="button" className="btn-add-item-sm" onClick={handleAddService}>
+                      + Add Service
+                    </button>
+                  </div>
+
+                  <div className="services-edit-stack">
+                    {services.map((svc, idx) => (
+                      <div key={idx} className="service-edit-card" id={`edit-service-card-${idx}`}>
+                        <div className="service-card-top-bar">
+                          <span className="card-number-badge">#{idx + 1}</span>
+                          <button
+                            type="button"
+                            className="btn-card-delete"
+                            onClick={() => handleDeleteService(idx)}
+                            title="Remove this service"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+
+                        <div className="editor-input-group">
+                          <label>Service Title</label>
+                          <input
+                            type="text"
+                            value={svc.name || ""}
+                            onChange={(e) => handleUpdateService(idx, "name", e.target.value)}
+                            placeholder="e.g. Espresso Crafting"
+                          />
+                        </div>
+
+                        <div className="editor-input-group" style={{ marginTop: "10px" }}>
+                          <label>Service Description</label>
+                          <textarea
+                            rows={2}
+                            value={svc.description || ""}
+                            onChange={(e) => handleUpdateService(idx, "description", e.target.value)}
+                            placeholder="Explain the offering and customer benefit..."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button type="button" className="btn-add-item-full" onClick={handleAddService}>
+                    + Add Another Service
+                  </button>
+                </div>
+              )}
+
+              {/* ------------------------------------
+                  TAB 4: HIGHLIGHTS & FAQS
+              ------------------------------------ */}
+              {activeEditorTab === "features" && (
+                <div className="editor-tab-pane">
+                  {/* Features / Why Choose Us */}
+                  <div className="pane-header-row">
+                    <h4>Why Choose Us ({features.length})</h4>
+                    <button type="button" className="btn-add-item-sm" onClick={handleAddFeature}>
+                      + Add Highlight
+                    </button>
+                  </div>
+
+                  <div className="features-edit-stack">
+                    {features.map((feat, fIdx) => (
+                      <div key={fIdx} className="feature-edit-card" id={`edit-feature-card-${fIdx}`}>
+                        <div className="service-card-top-bar">
+                          <span className="card-number-badge">Highlight #{fIdx + 1}</span>
+                          <button
+                            type="button"
+                            className="btn-card-delete"
+                            onClick={() => handleDeleteFeature(fIdx)}
+                            title="Remove highlight"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={feat.title || ""}
+                          onChange={(e) => handleUpdateFeature(fIdx, "title", e.target.value)}
+                          placeholder="Headline (e.g. Trusted Reliability)"
+                        />
+                        <textarea
+                          rows={2}
+                          style={{ marginTop: "8px" }}
+                          value={feat.description || ""}
+                          onChange={(e) => handleUpdateFeature(fIdx, "description", e.target.value)}
+                          placeholder="Description..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* FAQs */}
+                  <div className="pane-header-row" style={{ marginTop: "24px" }}>
+                    <h4>Frequently Asked Questions ({faqs.length})</h4>
+                    <button type="button" className="btn-add-item-sm" onClick={handleAddFaq}>
+                      + Add FAQ
+                    </button>
+                  </div>
+
+                  <div className="faqs-edit-stack">
+                    {faqs.map((faq, qIdx) => (
+                      <div key={qIdx} className="faq-edit-card" id={`edit-faq-card-${qIdx}`}>
+                        <div className="service-card-top-bar">
+                          <span className="card-number-badge">FAQ #{qIdx + 1}</span>
+                          <button
+                            type="button"
+                            className="btn-card-delete"
+                            onClick={() => handleDeleteFaq(qIdx)}
+                            title="Remove FAQ"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={faq.question || ""}
+                          onChange={(e) => handleUpdateFaq(qIdx, "question", e.target.value)}
+                          placeholder="Question..."
+                        />
+                        <textarea
+                          rows={2}
+                          style={{ marginTop: "8px" }}
+                          value={faq.answer || ""}
+                          onChange={(e) => handleUpdateFaq(qIdx, "answer", e.target.value)}
+                          placeholder="Helpful answer..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------------------------
+                  TAB 5: CONTACT & HOURS
+              ------------------------------------ */}
+              {activeEditorTab === "contact" && (
+                <div className="editor-tab-pane">
+                  <div className="editor-field-card">
+                    <h4>Location & Operating Schedule</h4>
+
+                    <div className="editor-input-group">
+                      <label htmlFor="edit-location">Physical Location / Operating Area</label>
+                      <input
+                        id="edit-location"
+                        type="text"
+                        value={location}
+                        onChange={(e) => handleUpdateDataField("location", e.target.value)}
+                        placeholder="e.g. Bandra West, Mumbai"
+                      />
+                    </div>
+
+                    <div className="editor-input-group" style={{ marginTop: "14px" }}>
+                      <label htmlFor="edit-hours">Operating Hours & Schedule</label>
+                      <input
+                        id="edit-hours"
+                        type="text"
+                        value={hours}
+                        onChange={(e) => handleUpdateDataField("hours", e.target.value)}
+                        placeholder="e.g. Mon - Sat: 9:00 AM - 9:00 PM"
+                      />
+                    </div>
+
+                    <div className="editor-input-group" style={{ marginTop: "14px" }}>
+                      <label htmlFor="edit-contact">Direct Contact (Compulsory on Site)</label>
+                      <input
+                        id="edit-contact"
+                        type="text"
+                        value={contact}
+                        onChange={(e) => handleUpdateDataField("contact", e.target.value)}
+                        placeholder="e.g. +91 9876543210 or hello@brand.com"
+                      />
+                      <small className="field-hint">Visitors can copy this with one tap on the site.</small>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          </aside>
         )}
-      </main>
+
+        {/* ============================================================
+            MAIN PREVIEW CANVAS AREA
+        ============================================================ */}
+        <main className={`preview-canvas-container ${isEditing ? "with-sidebar-open" : ""}`}>
+          {viewMode === "code" ? (
+            <div className="code-viewer-panel">
+              <div className="code-viewer-header">
+                <span>Standalone Production HTML ({serverHtml.length} characters)</span>
+                <button className="tb-btn tb-copy-small" onClick={handleCopyCode}>
+                  Copy Entire Code
+                </button>
+              </div>
+              <pre className="code-viewer-content">
+                <code>{getCompleteHtml()}</code>
+              </pre>
+            </div>
+          ) : (
+            <div className={`device-frame device-frame-${deviceMode}`}>
+              {deviceMode !== "desktop" && (
+                <div className="device-notch-bar">
+                  <span className="notch-camera"></span>
+                  <span className="notch-speaker"></span>
+                </div>
+              )}
+
+              {/* Template Render Container */}
+              <div className={`rendered-website template-skin-${activeTemplate} ${isEditing ? "live-editing-active" : ""}`}>
+                {renderTemplateSkin({
+                  templateId: activeTemplate,
+                  businessName,
+                  category,
+                  location,
+                  hours,
+                  contact,
+                  heroTitle,
+                  heroDesc,
+                  aboutText,
+                  cta,
+                  services,
+                  features,
+                  faqs,
+                  onContactClick: handleContactClick,
+                  isEditing,
+                  onUpdateDataField: handleUpdateDataField,
+                  onUpdateContentField: handleUpdateContentField,
+                  onUpdateService: handleUpdateService,
+                  onUpdateFeature: handleUpdateFeature,
+                  onUpdateFaq: handleUpdateFaq,
+                  onFocusField: handleFocusFieldFromCanvas,
+                })}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
 // --------------------------------------------------------------------
 // Template Skin Dispatcher & Component Renderers
+// Supports direct inline editing and instant live preview
 // --------------------------------------------------------------------
 function renderTemplateSkin(props) {
   const {
@@ -493,6 +1201,13 @@ function renderTemplateSkin(props) {
     features,
     faqs,
     onContactClick,
+    isEditing,
+    onUpdateDataField,
+    onUpdateContentField,
+    onUpdateService,
+    onUpdateFeature,
+    onUpdateFaq,
+    onFocusField,
   } = props;
 
   return (
@@ -500,9 +1215,28 @@ function renderTemplateSkin(props) {
       {/* Sticky Navigation */}
       <nav className="tpl-nav">
         <div className="tpl-nav-inner">
-          <div className="tpl-brand-cluster">
-            <span className="tpl-brand-name">{businessName}</span>
-            <span className="tpl-brand-badge">{category}</span>
+          <div
+            className={`tpl-brand-cluster ${isEditing ? "editable-inline-block" : ""}`}
+            onClick={isEditing ? () => onFocusField("hero", "edit-business-name") : undefined}
+            title={isEditing ? "Click to edit brand details in sidebar" : ""}
+          >
+            <span
+              className="tpl-brand-name"
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateDataField("business_name", e.currentTarget.innerText.trim())}
+            >
+              {businessName}
+            </span>
+            <span
+              className="tpl-brand-badge"
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateDataField("category", e.currentTarget.innerText.trim())}
+            >
+              {category}
+            </span>
+            {isEditing && <span className="inline-pen-badge">✎</span>}
           </div>
           <div className="tpl-nav-links">
             <a href="#about" onClick={(e) => { e.preventDefault(); document.getElementById("about")?.scrollIntoView({ behavior: "smooth" }); }}>About</a>
@@ -518,17 +1252,70 @@ function renderTemplateSkin(props) {
       {/* Hero Section */}
       <header className="tpl-hero-section">
         <div className="tpl-container">
-          <div className="tpl-eyebrow-pill">
-            <span className="eyebrow-dot"></span> Verified Profile &bull; {location}
+          <div
+            className={`tpl-eyebrow-pill ${isEditing ? "editable-inline-block" : ""}`}
+            onClick={isEditing ? () => onFocusField("contact", "edit-location") : undefined}
+          >
+            <span className="eyebrow-dot"></span> Verified Profile &bull;{" "}
+            <span
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateDataField("location", e.currentTarget.innerText.trim())}
+            >
+              {location}
+            </span>
+            {isEditing && <span className="inline-pen-badge">✎</span>}
           </div>
 
-          <h1 className="tpl-hero-headline">{heroTitle}</h1>
-          <p className="tpl-hero-subtext">{heroDesc}</p>
+          <div
+            className={`hero-headline-wrap ${isEditing ? "editable-inline-block" : ""}`}
+            onClick={isEditing ? () => onFocusField("hero", "edit-hero-title") : undefined}
+            title={isEditing ? "Click to edit hero title" : ""}
+          >
+            <h1
+              className="tpl-hero-headline"
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateContentField("hero_title", e.currentTarget.innerText.trim())}
+            >
+              {heroTitle}
+            </h1>
+            {isEditing && <span className="inline-pen-badge">✎</span>}
+          </div>
+
+          <div
+            className={`hero-subtext-wrap ${isEditing ? "editable-inline-block" : ""}`}
+            onClick={isEditing ? () => onFocusField("hero", "edit-hero-desc") : undefined}
+            title={isEditing ? "Click to edit hero description" : ""}
+          >
+            <p
+              className="tpl-hero-subtext"
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateContentField("hero_description", e.currentTarget.innerText.trim())}
+            >
+              {heroDesc}
+            </p>
+            {isEditing && <span className="inline-pen-badge">✎</span>}
+          </div>
 
           <div className="tpl-hero-actions">
-            <button className="tpl-btn-primary" onClick={onContactClick}>
-              {cta} &darr;
-            </button>
+            <div
+              className={`hero-cta-btn-wrap ${isEditing ? "editable-inline-block" : ""}`}
+              onClick={isEditing ? () => onFocusField("hero", "edit-hero-cta") : undefined}
+            >
+              <button
+                className="tpl-btn-primary"
+                onClick={!isEditing ? onContactClick : undefined}
+                contentEditable={isEditing}
+                suppressContentEditableWarning={true}
+                onBlur={(e) => onUpdateContentField("cta", e.currentTarget.innerText.trim())}
+              >
+                {cta} &darr;
+              </button>
+              {isEditing && <span className="inline-pen-badge">✎</span>}
+            </div>
+
             <button className="tpl-btn-secondary" onClick={onContactClick}>
               📍 View Details &bull; {location}
             </button>
@@ -536,28 +1323,64 @@ function renderTemplateSkin(props) {
 
           {/* Quick Business Ribbon */}
           <div className="tpl-info-ribbon">
-            <div className="ribbon-card" onClick={onContactClick} style={{ cursor: "pointer" }}>
+            <div
+              className={`ribbon-card ${isEditing ? "editable-inline-block" : ""}`}
+              onClick={isEditing ? () => onFocusField("contact", "edit-location") : onContactClick}
+              style={{ cursor: "pointer" }}
+            >
               <span className="ribbon-icon">📍</span>
               <div>
                 <span className="ribbon-label">Location</span>
-                <strong className="ribbon-val">{location}</strong>
+                <strong
+                  className="ribbon-val"
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateDataField("location", e.currentTarget.innerText.trim())}
+                >
+                  {location}
+                </strong>
               </div>
+              {isEditing && <span className="inline-pen-badge">✎</span>}
             </div>
 
-            <div className="ribbon-card" onClick={onContactClick} style={{ cursor: "pointer" }}>
+            <div
+              className={`ribbon-card ${isEditing ? "editable-inline-block" : ""}`}
+              onClick={isEditing ? () => onFocusField("contact", "edit-hours") : onContactClick}
+              style={{ cursor: "pointer" }}
+            >
               <span className="ribbon-icon">🕒</span>
               <div>
                 <span className="ribbon-label">Hours</span>
-                <strong className="ribbon-val">{hours}</strong>
+                <strong
+                  className="ribbon-val"
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateDataField("hours", e.currentTarget.innerText.trim())}
+                >
+                  {hours}
+                </strong>
               </div>
+              {isEditing && <span className="inline-pen-badge">✎</span>}
             </div>
 
-            <div className="ribbon-card" onClick={onContactClick} style={{ cursor: "pointer" }}>
+            <div
+              className={`ribbon-card ${isEditing ? "editable-inline-block" : ""}`}
+              onClick={isEditing ? () => onFocusField("contact", "edit-contact") : onContactClick}
+              style={{ cursor: "pointer" }}
+            >
               <span className="ribbon-icon">📞</span>
               <div>
                 <span className="ribbon-label">Direct Contact</span>
-                <strong className="ribbon-val">{contact || "Available on request"}</strong>
+                <strong
+                  className="ribbon-val"
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateDataField("contact", e.currentTarget.innerText.trim())}
+                >
+                  {contact || "Available on request"}
+                </strong>
               </div>
+              {isEditing && <span className="inline-pen-badge">✎</span>}
             </div>
           </div>
         </div>
@@ -566,12 +1389,23 @@ function renderTemplateSkin(props) {
       {/* About Section */}
       <section className="tpl-section tpl-about-section" id="about">
         <div className="tpl-container">
-          <div className="tpl-about-card">
+          <div
+            className={`tpl-about-card ${isEditing ? "editable-inline-block" : ""}`}
+            onClick={isEditing ? () => onFocusField("about", "edit-about-text") : undefined}
+          >
             <div className="tpl-about-header">
               <span className="tpl-section-badge">Our Story</span>
               <h2>About {businessName}</h2>
             </div>
-            <p className="tpl-about-text">{aboutText}</p>
+            <p
+              className="tpl-about-text"
+              contentEditable={isEditing}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => onUpdateContentField("about", e.currentTarget.innerText.trim())}
+            >
+              {aboutText}
+            </p>
+            {isEditing && <span className="inline-pen-badge">✎</span>}
           </div>
         </div>
       </section>
@@ -587,13 +1421,30 @@ function renderTemplateSkin(props) {
 
           <div className="tpl-services-grid">
             {services.map((svc, sIdx) => (
-              <div key={sIdx} className="tpl-service-card">
+              <div
+                key={sIdx}
+                className={`tpl-service-card ${isEditing ? "editable-inline-block" : ""}`}
+                onClick={isEditing ? () => onFocusField("services", `edit-service-card-${sIdx}`) : undefined}
+              >
                 <div className="service-card-header">
                   <span className="service-number">0{sIdx + 1}</span>
                   <span className="service-accent-dot"></span>
                 </div>
-                <h3>{svc.name}</h3>
-                <p>{svc.description}</p>
+                <h3
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateService(sIdx, "name", e.currentTarget.innerText.trim())}
+                >
+                  {svc.name}
+                </h3>
+                <p
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateService(sIdx, "description", e.currentTarget.innerText.trim())}
+                >
+                  {svc.description}
+                </p>
+                {isEditing && <span className="inline-pen-badge">✎</span>}
               </div>
             ))}
           </div>
@@ -611,12 +1462,29 @@ function renderTemplateSkin(props) {
 
             <div className="tpl-features-grid">
               {features.map((feat, fIdx) => (
-                <div key={fIdx} className="tpl-feature-card">
+                <div
+                  key={fIdx}
+                  className={`tpl-feature-card ${isEditing ? "editable-inline-block" : ""}`}
+                  onClick={isEditing ? () => onFocusField("features", `edit-feature-card-${fIdx}`) : undefined}
+                >
                   <div className="feature-check-icon">✓</div>
                   <div>
-                    <h4>{feat.title}</h4>
-                    <p>{feat.description}</p>
+                    <h4
+                      contentEditable={isEditing}
+                      suppressContentEditableWarning={true}
+                      onBlur={(e) => onUpdateFeature(fIdx, "title", e.currentTarget.innerText.trim())}
+                    >
+                      {feat.title}
+                    </h4>
+                    <p
+                      contentEditable={isEditing}
+                      suppressContentEditableWarning={true}
+                      onBlur={(e) => onUpdateFeature(fIdx, "description", e.currentTarget.innerText.trim())}
+                    >
+                      {feat.description}
+                    </p>
                   </div>
+                  {isEditing && <span className="inline-pen-badge">✎</span>}
                 </div>
               ))}
             </div>
@@ -635,9 +1503,26 @@ function renderTemplateSkin(props) {
 
             <div className="tpl-faqs-list">
               {faqs.map((faq, qIdx) => (
-                <div key={qIdx} className="tpl-faq-card">
-                  <h4>{faq.question}</h4>
-                  <p>{faq.answer}</p>
+                <div
+                  key={qIdx}
+                  className={`tpl-faq-card ${isEditing ? "editable-inline-block" : ""}`}
+                  onClick={isEditing ? () => onFocusField("features", `edit-faq-card-${qIdx}`) : undefined}
+                >
+                  <h4
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateFaq(qIdx, "question", e.currentTarget.innerText.trim())}
+                  >
+                    {faq.question}
+                  </h4>
+                  <p
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateFaq(qIdx, "answer", e.currentTarget.innerText.trim())}
+                  >
+                    {faq.answer}
+                  </p>
+                  {isEditing && <span className="inline-pen-badge">✎</span>}
                 </div>
               ))}
             </div>
@@ -653,28 +1538,58 @@ function renderTemplateSkin(props) {
             <p>We are happily serving customers across {location}. Check our full schedule and details below:</p>
 
             <div className="tpl-contact-details-grid">
-              <div className="tpl-contact-detail-item">
+              <div
+                className={`tpl-contact-detail-item ${isEditing ? "editable-inline-block" : ""}`}
+                onClick={isEditing ? () => onFocusField("contact", "edit-location") : undefined}
+              >
                 <span className="detail-icon">📍</span>
                 <div>
                   <span className="detail-label">Physical Location</span>
-                  <strong>{location}</strong>
+                  <strong
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateDataField("location", e.currentTarget.innerText.trim())}
+                  >
+                    {location}
+                  </strong>
                 </div>
+                {isEditing && <span className="inline-pen-badge">✎</span>}
               </div>
 
-              <div className="tpl-contact-detail-item">
+              <div
+                className={`tpl-contact-detail-item ${isEditing ? "editable-inline-block" : ""}`}
+                onClick={isEditing ? () => onFocusField("contact", "edit-hours") : undefined}
+              >
                 <span className="detail-icon">🕒</span>
                 <div>
                   <span className="detail-label">Operating Schedule</span>
-                  <strong>{hours}</strong>
+                  <strong
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateDataField("hours", e.currentTarget.innerText.trim())}
+                  >
+                    {hours}
+                  </strong>
                 </div>
+                {isEditing && <span className="inline-pen-badge">✎</span>}
               </div>
 
-              <div className="tpl-contact-detail-item">
+              <div
+                className={`tpl-contact-detail-item ${isEditing ? "editable-inline-block" : ""}`}
+                onClick={isEditing ? () => onFocusField("contact", "edit-contact") : undefined}
+              >
                 <span className="detail-icon">📞</span>
                 <div>
                   <span className="detail-label">Direct Contact</span>
-                  <strong>{contact || "Available during open hours"}</strong>
+                  <strong
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateDataField("contact", e.currentTarget.innerText.trim())}
+                  >
+                    {contact || "Available during open hours"}
+                  </strong>
                 </div>
+                {isEditing && <span className="inline-pen-badge">✎</span>}
               </div>
             </div>
           </div>

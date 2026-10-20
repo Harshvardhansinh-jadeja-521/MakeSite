@@ -19,10 +19,12 @@ from schemas import (
     GenerateHtmlRequest,
     GenerateHtmlResponse,
     HealthResponse,
+    RephraseRequest,
+    RephraseResponse,
     ErrorResponse,
 )
 from extraction import async_extract_business_info, PRIMARY_MODEL, FALLBACK_MODEL
-from content_generation import async_generate_website_content
+from content_generation import async_generate_website_content, async_rephrase_section
 from website_generator import (
     generate_standalone_website_html,
     get_available_templates,
@@ -146,6 +148,7 @@ async def home():
             "POST /update-business",
             "POST /generate-content",
             "POST /generate-html",
+            "POST /rephrase-section",
             "GET /templates",
             "GET /health",
         ],
@@ -295,6 +298,29 @@ async def generate_html(request: GenerateHtmlRequest):
         "template_id": request.template_id,
         "size_bytes": len(html_output.encode("utf-8")),
     }
+
+
+# ----------------------------------------------------
+# AI Rephrase / Polish Section Endpoint
+# ----------------------------------------------------
+@app.post(
+    "/rephrase-section",
+    response_model=RephraseResponse,
+    tags=["Core AI"],
+)
+async def rephrase_section(request: RephraseRequest):
+    """
+    Polishes, elevates, or rewrites a specific website section (headline,
+    subtitle, about story, service, or CTA) with compelling AI suggestions.
+    """
+    result = await async_rephrase_section(
+        section=request.section,
+        text=request.text,
+        business_name=request.business_name,
+        category=request.category,
+        style=request.style,
+    )
+    return result
 
 
 # ----------------------------------------------------

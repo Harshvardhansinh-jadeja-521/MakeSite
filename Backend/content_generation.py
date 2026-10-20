@@ -294,3 +294,125 @@ Remember: Return ONLY valid JSON matching the exact required schema. Do NOT incl
     fallback = create_fallback_content(business_data)
     fallback["cta"] = sanitize_cta(fallback.get("cta"))
     return json.dumps(fallback)
+
+
+async def async_rephrase_section(
+    section: str,
+    text: str,
+    business_name: Optional[str] = None,
+    category: Optional[str] = None,
+    style: Optional[str] = "modern and punchy",
+) -> Dict[str, Any]:
+    """
+    Polishes or rewrites a specific website section (hero headline, subtitle,
+    about story, service description, or cta) using AI with smart fallbacks.
+    """
+    clean_text = (text or "").strip()
+    if not clean_text:
+        return {
+            "original": text,
+            "improved": text,
+            "alternatives": [],
+        }
+
+    # If Groq is not configured, generate smart contextual variations
+    if not async_client:
+        return _fallback_rephrase(section, clean_text, business_name, category)
+
+    system_prompt = f"""You are MakeSite AI Copywriter.
+The user wants to polish or rephrase a website {section.replace('_', ' ')} for their business: {business_name or 'Our Enterprise'} ({category or 'Professional Services'}).
+Requested Style: {style or 'modern and punchy'}.
+
+CRITICAL RULES:
+1. Return ONLY pure valid JSON in this exact schema:
+{{
+  "improved": "Primary polished, impactful version",
+  "alternatives": ["Catchy alternative 1", "Professional alternative 2"]
+}}
+2. No markdown code blocks, no preamble, no explanations.
+3. Keep the meaning accurate to the original while elevating the vocabulary, clarity, and conversion appeal.
+4. If this is a CTA, NEVER use e-commerce words like 'Shop Now', 'Buy Now', or 'Order Now'. Keep it informational ('Connect With Us', 'Get in Touch', 'Inquire Today').
+"""
+
+    user_prompt = f"""Original text to polish:
+"{clean_text}"
+"""
+
+    models_to_try = [PRIMARY_MODEL, FALLBACK_MODEL, "openai/gpt-oss-120b"]
+    for model in models_to_try:
+        try:
+            response = await asyncio.wait_for(
+                async_client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.5,
+                    max_tokens=400,
+                ),
+                timeout=12.0,
+            )
+
+            raw = response.choices[0].message.content or "{}"
+            cleaned = clean_json_response(raw)
+            parsed = json.loads(cleaned)
+
+            improved = parsed.get("improved", "").strip() or clean_text
+            alts = [a.strip() for a in parsed.get("alternatives", []) if a and isinstance(a, str)]
+
+            if section == "cta":
+                improved = sanitize_cta(improved)
+                alts = [sanitize_cta(a) for a in alts]
+
+            return {
+                "original": clean_text,
+                "improved": improved,
+                "alternatives": alts[:3],
+            }
+        except Exception as e:
+            logger.warning(f"Rephrase model {model} attempt failed: {e}")
+            continue
+
+    return _fallback_rephrase(section, clean_text, business_name, category)
+
+
+def _fallback_rephrase(section: str, text: str, business_name: Optional[str], category: Optional[str]) -> Dict[str, Any]:
+    """Smart local fallbacks for quick instant rephrasing."""
+    b_name = business_name or "Our Enterprise"
+    cat = category or "Services"
+
+    if section == "hero_title":
+        improved = f"Next-Level {cat} Handcrafted for Excellence"
+        alts = [
+            f"Transforming {cat} with Precision & Care",
+            f"Your Trusted Destination for Premier {cat}",
+            f"Experience World-Class {cat} with {b_name}",
+        ]
+    elif section == "hero_description":
+        improved = f"Delivering trusted, top-tier {cat.lower()} solutions designed to exceed your expectations every single day."
+        alts = [
+            f"Dedicated to uncompromising quality, transparent customer care, and exceptional results for every client.",
+            f"Combining deep expertise with reliable, personalized service you can always count on in our community.",
+        ]
+    elif section == "cta":
+        improved = "Connect With Our Team"
+        alts = ["Schedule a Consultation", "Inquire With Us Today", "Visit Our Office"]
+    elif section == "about":
+        improved = f"At {b_name}, we are driven by a passion for dependable service and lasting customer relationships. Built on trust and excellence, we proudly deliver solutions tailored to your unique needs."
+        alts = [
+            f"Founded with a clear commitment to customer-first values, {b_name} brings unmatched dedication and reliable expertise to our community.",
+        ]
+    else:
+        improved = text + " — crafted with precision and dedicated care."
+        alts = [
+            f"High-quality {text} tailored to your needs.",
+            f"Dependable, expert-grade {text} delivered seamlessly.",
+        ]
+
+    return {
+        "original": text,
+        "improved": improved,
+        "alternatives": alts,
+    }
