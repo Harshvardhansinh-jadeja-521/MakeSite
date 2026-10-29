@@ -231,11 +231,14 @@
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   display: flex;
   justify-content: center;
-  padding: 30px 20px 80px;
+  align-items: flex-start;
+  padding: 24px 16px 80px;
   background: #08090d;
   background-image:
     radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 60%);
@@ -243,7 +246,9 @@
 
 .device-frame {
   width: 100%;
-  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .device-frame-desktop {
@@ -252,45 +257,172 @@
 }
 
 .device-frame-tablet {
-  max-width: 768px;
-  border: 12px solid #1e222f;
+  width: 768px;
+  max-width: calc(100% - 16px);
+  border: 12px solid #1a1e29;
   border-radius: 36px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: #0f121a;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
-  background: #121622;
+  margin: 0 auto;
+}
+
+.device-frame-tablet.frame-screen {
+  height: min(880px, calc(100vh - 120px));
+}
+
+.device-frame-tablet.frame-full {
+  height: auto;
 }
 
 .device-frame-mobile {
-  max-width: 390px;
-  border: 12px solid #1e222f;
-  border-radius: 44px;
+  width: 390px;
+  max-width: calc(100% - 16px);
+  border: 11px solid #1a1e29;
+  border-radius: 46px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: #0f121a;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
-  background: #121622;
+  margin: 0 auto;
+}
+
+.device-frame-mobile.frame-screen {
+  height: min(844px, calc(100vh - 120px));
+}
+
+.device-frame-mobile.frame-full {
+  height: auto;
+}
+
+/* Device Screen Scrollbox — enables realistic in-frame scrolling */
+.device-screen-scrollbox {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  touch-action: pan-y;
+  position: relative;
+}
+
+.device-frame-desktop .device-screen-scrollbox,
+.frame-full .device-screen-scrollbox {
+  overflow-y: visible;
+  height: auto;
+}
+
+/* Sleek subtle scrollbars inside device screen */
+.device-screen-scrollbox::-webkit-scrollbar {
+  width: 5px;
+}
+.device-screen-scrollbox::-webkit-scrollbar-track {
+  background: transparent;
+}
+.device-screen-scrollbox::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+.device-screen-scrollbox::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .device-notch-bar {
-  background: #1e222f;
-  padding: 8px 0;
+  flex-shrink: 0;
+  background: #1a1e29;
+  padding: 8px 16px;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 10px;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .notch-camera {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #0f121a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #08090d;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
 }
 
 .notch-speaker {
-  width: 50px;
+  width: 48px;
   height: 4px;
   border-radius: 4px;
-  background: #0f121a;
+  background: #08090d;
+}
+
+.notch-label {
+  font-size: 10.5px;
+  color: #717e99;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+}
+
+.device-bottom-bar {
+  flex-shrink: 0;
+  background: #1a1e29;
+  padding: 8px 0 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.device-home-pill {
+  width: 120px;
+  height: 4.5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 0.2s;
+}
+
+.device-bottom-bar:hover .device-home-pill {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Frame Scroll View Toggle (Screen vs Full Page) */
+.frame-scroll-pills {
+  display: inline-flex;
+  background: var(--bg-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  margin-left: 6px;
+}
+
+.frame-scroll-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.frame-scroll-btn:hover {
+  color: var(--text-0);
+}
+
+.frame-scroll-btn.active {
+  background: var(--accent-muted);
+  color: var(--accent-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* ========================================
@@ -980,17 +1112,28 @@
 .tpl-tech-bold .tpl-cta-box { background: #0d0d0d; border: 1px solid #84cc16; border-radius: 8px; }
 .tpl-tech-bold .tpl-footer { border-color: #222; color: #9ca3af; font-family: monospace; }
 
-/* Responsive adjustments */
+/* ==============================================================================
+   RESPONSIVE DESIGN SYSTEM (FOR REAL MOBILE / TABLET SCREENS & PREVIEW FRAMES)
+============================================================================== */
+
+/* Toolbar Responsive */
 @media (max-width: 900px) {
   .preview-top-toolbar {
     flex-wrap: wrap;
-    padding: 12px 16px;
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .toolbar-left,
+  .toolbar-right {
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .toolbar-center {
     order: 3;
     width: 100%;
     justify-content: center;
-    margin-top: 6px;
+    margin-top: 4px;
+    gap: 8px;
   }
   .device-label {
     display: none;
@@ -998,13 +1141,691 @@
 }
 
 @media (max-width: 600px) {
+  .preview-top-toolbar {
+    padding: 8px 10px;
+  }
   .toolbar-left,
   .toolbar-right {
-    gap: 8px;
+    gap: 6px;
   }
   .tb-btn {
-    padding: 6px 10px;
+    padding: 6px 9px;
+    font-size: 11.5px;
+  }
+  .tb-template-dropdown {
+    padding: 5px 8px;
     font-size: 12px;
+  }
+  .device-btn {
+    padding: 5px 8px;
+    font-size: 11.5px;
+  }
+  .frame-scroll-btn {
+    padding: 4px 7px;
+    font-size: 10.5px;
+  }
+}
+
+/* ----------------------------------------------------
+   TABLET STYLES (.device-frame-tablet mockup)
+---------------------------------------------------- */
+.device-frame-tablet .tpl-container {
+  padding: 0 22px;
+}
+.device-frame-tablet .tpl-hero-headline {
+  font-size: clamp(2rem, 4.5vw, 2.9rem);
+  line-height: 1.2;
+  margin-bottom: 20px;
+}
+.device-frame-tablet .tpl-hero-subtext {
+  font-size: 1.05rem;
+  max-width: 600px;
+  margin-bottom: 30px;
+}
+.device-frame-tablet .tpl-hero-actions {
+  gap: 12px;
+  margin-bottom: 40px;
+}
+.device-frame-tablet .tpl-info-ribbon {
+  grid-template-columns: repeat(3, 1fr);
+  padding: 20px;
+  gap: 12px;
+}
+.device-frame-tablet .tpl-section {
+  padding: 50px 0;
+}
+.device-frame-tablet .tpl-about-card {
+  padding: 36px 30px;
+}
+.device-frame-tablet .tpl-about-header h2 {
+  font-size: 1.75rem;
+}
+.device-frame-tablet .tpl-about-text {
+  font-size: 1.05rem;
+}
+.device-frame-tablet .tpl-services-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.device-frame-tablet .tpl-service-card {
+  padding: 24px 22px;
+}
+.device-frame-tablet .tpl-features-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.device-frame-tablet .tpl-cta-box {
+  padding: 44px 28px;
+}
+.device-frame-tablet .tpl-contact-details-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+/* ----------------------------------------------------
+   MOBILE STYLES (.device-frame-mobile mockup)
+---------------------------------------------------- */
+.device-frame-mobile .tpl-container {
+  padding: 0 16px;
+}
+.device-frame-mobile .tpl-nav {
+  padding: 12px 0;
+}
+.device-frame-mobile .tpl-nav-inner {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 0 16px;
+}
+.device-frame-mobile .tpl-brand-cluster {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.device-frame-mobile .tpl-brand-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 210px;
+}
+.device-frame-mobile .tpl-brand-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  flex-shrink: 0;
+}
+.device-frame-mobile .tpl-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
+}
+.device-frame-mobile .tpl-nav-links::-webkit-scrollbar {
+  display: none;
+}
+.device-frame-mobile .tpl-nav-links a {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.device-frame-mobile .tpl-nav-cta {
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  border-radius: 99px !important;
+}
+.device-frame-mobile .tpl-hero-section {
+  padding: 36px 0 28px;
+}
+.device-frame-mobile .tpl-eyebrow-pill {
+  font-size: 11px;
+  padding: 4px 12px;
+  margin-bottom: 16px;
+  max-width: 95%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-frame-mobile .tpl-hero-headline {
+  font-size: clamp(1.65rem, 6.5vw, 2.15rem);
+  line-height: 1.22;
+  margin-bottom: 14px;
+  letter-spacing: -0.015em;
+}
+.device-frame-mobile .tpl-hero-subtext {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+.device-frame-mobile .tpl-hero-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto 30px;
+}
+.device-frame-mobile .tpl-btn-primary {
+  width: 100%;
+  padding: 13px 20px;
+  font-size: 14.5px;
+  border-radius: 12px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.device-frame-mobile .tpl-btn-secondary {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 13.5px;
+  border-radius: 12px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.device-frame-mobile .tpl-info-ribbon {
+  grid-template-columns: 1fr;
+  padding: 14px;
+  gap: 10px;
+  border-radius: 16px;
+}
+.device-frame-mobile .ribbon-card {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+}
+.device-frame-mobile .ribbon-icon {
+  font-size: 20px;
+}
+.device-frame-mobile .ribbon-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.device-frame-mobile .ribbon-val {
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-word;
+}
+.device-frame-mobile .tpl-section {
+  padding: 34px 0;
+}
+.device-frame-mobile .tpl-section-header {
+  margin-bottom: 24px;
+}
+.device-frame-mobile .tpl-section-header h2 {
+  font-size: 1.45rem;
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+.device-frame-mobile .tpl-section-header p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.device-frame-mobile .tpl-section-badge {
+  font-size: 10.5px;
+  margin-bottom: 6px;
+}
+.device-frame-mobile .tpl-about-card {
+  padding: 22px 18px;
+  border-radius: 18px;
+}
+.device-frame-mobile .tpl-about-header h2 {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+}
+.device-frame-mobile .tpl-about-text {
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+.device-frame-mobile .tpl-services-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.device-frame-mobile .tpl-service-card {
+  padding: 18px 16px;
+  border-radius: 16px;
+}
+.device-frame-mobile .tpl-service-card h3 {
+  font-size: 1.15rem;
+  margin-bottom: 6px;
+}
+.device-frame-mobile .tpl-service-card p {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.device-frame-mobile .service-card-header {
+  margin-bottom: 12px;
+}
+.device-frame-mobile .service-number {
+  font-size: 14px;
+}
+.device-frame-mobile .tpl-features-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.device-frame-mobile .tpl-feature-card {
+  padding: 16px 14px;
+  border-radius: 14px;
+  gap: 12px;
+}
+.device-frame-mobile .feature-check-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.device-frame-mobile .tpl-feature-card h4 {
+  font-size: 0.98rem;
+  margin-bottom: 4px;
+}
+.device-frame-mobile .tpl-feature-card p {
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.device-frame-mobile .tpl-faqs-list {
+  gap: 10px;
+}
+.device-frame-mobile .tpl-faq-card {
+  padding: 16px;
+  border-radius: 14px;
+}
+.device-frame-mobile .tpl-faq-card h4 {
+  font-size: 0.98rem;
+  margin-bottom: 6px;
+}
+.device-frame-mobile .tpl-faq-card p {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.device-frame-mobile .tpl-cta-box {
+  padding: 28px 16px;
+  border-radius: 20px;
+}
+.device-frame-mobile .tpl-cta-box h2 {
+  font-size: 1.45rem;
+  margin-bottom: 8px;
+  line-height: 1.25;
+}
+.device-frame-mobile .tpl-cta-box p {
+  font-size: 0.9rem;
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+.device-frame-mobile .tpl-contact-details-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.device-frame-mobile .tpl-contact-detail-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  gap: 12px;
+}
+.device-frame-mobile .tpl-contact-detail-item .detail-icon {
+  font-size: 20px;
+}
+.device-frame-mobile .tpl-contact-detail-item .detail-label {
+  font-size: 10px;
+}
+.device-frame-mobile .tpl-contact-detail-item strong {
+  font-size: 13px;
+}
+.device-frame-mobile .tpl-footer {
+  padding: 28px 0 20px;
+}
+.device-frame-mobile .tpl-footer-inner {
+  flex-direction: column;
+  text-align: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+/* ----------------------------------------------------
+   VIEWPORT MEDIA QUERIES (REAL TABLET & PHONES)
+---------------------------------------------------- */
+@media (max-width: 960px) {
+  .tpl-container {
+    padding: 0 22px;
+  }
+  .tpl-hero-headline {
+    font-size: clamp(2rem, 4.5vw, 2.9rem);
+    line-height: 1.2;
+    margin-bottom: 20px;
+  }
+  .tpl-hero-subtext {
+    font-size: 1.05rem;
+    max-width: 600px;
+    margin-bottom: 30px;
+  }
+  .tpl-hero-actions {
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .tpl-info-ribbon {
+    grid-template-columns: repeat(3, 1fr);
+    padding: 20px;
+    gap: 12px;
+  }
+  .tpl-section {
+    padding: 50px 0;
+  }
+  .tpl-about-card {
+    padding: 36px 30px;
+  }
+  .tpl-about-header h2 {
+    font-size: 1.75rem;
+  }
+  .tpl-about-text {
+    font-size: 1.05rem;
+  }
+  .tpl-services-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .tpl-service-card {
+    padding: 24px 22px;
+  }
+  .tpl-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .tpl-cta-box {
+    padding: 44px 28px;
+  }
+  .tpl-contact-details-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 680px) {
+  .tpl-container {
+    padding: 0 16px;
+  }
+  .tpl-nav {
+    padding: 12px 0;
+  }
+  .tpl-nav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 0 16px;
+  }
+  .tpl-brand-cluster {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .tpl-brand-name {
+    font-size: 1.15rem;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 210px;
+  }
+  .tpl-brand-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    flex-shrink: 0;
+  }
+  .tpl-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0 4px;
+    scrollbar-width: none;
+  }
+  .tpl-nav-links::-webkit-scrollbar {
+    display: none;
+  }
+  .tpl-nav-links a {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-decoration: none;
+  }
+  .tpl-nav-cta {
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    border-radius: 99px !important;
+  }
+  .tpl-hero-section {
+    padding: 36px 0 28px;
+  }
+  .tpl-eyebrow-pill {
+    font-size: 11px;
+    padding: 4px 12px;
+    margin-bottom: 16px;
+    max-width: 95%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tpl-hero-headline {
+    font-size: clamp(1.65rem, 6.5vw, 2.15rem);
+    line-height: 1.22;
+    margin-bottom: 14px;
+    letter-spacing: -0.015em;
+  }
+  .tpl-hero-subtext {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-bottom: 24px;
+    padding: 0 4px;
+  }
+  .tpl-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto 30px;
+  }
+  .tpl-btn-primary {
+    width: 100%;
+    padding: 13px 20px;
+    font-size: 14.5px;
+    border-radius: 12px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tpl-btn-secondary {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 13.5px;
+    border-radius: 12px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tpl-info-ribbon {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+  .ribbon-card {
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    gap: 12px;
+  }
+  .ribbon-icon {
+    font-size: 20px;
+  }
+  .ribbon-label {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+  .ribbon-val {
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .tpl-section {
+    padding: 34px 0;
+  }
+  .tpl-section-header {
+    margin-bottom: 24px;
+  }
+  .tpl-section-header h2 {
+    font-size: 1.45rem;
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+  .tpl-section-header p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .tpl-section-badge {
+    font-size: 10.5px;
+    margin-bottom: 6px;
+  }
+  .tpl-about-card {
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+  .tpl-about-header h2 {
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+  }
+  .tpl-about-text {
+    font-size: 0.96rem;
+    line-height: 1.65;
+  }
+  .tpl-services-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .tpl-service-card {
+    padding: 18px 16px;
+    border-radius: 16px;
+  }
+  .tpl-service-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+  }
+  .tpl-service-card p {
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  .service-card-header {
+    margin-bottom: 12px;
+  }
+  .service-number {
+    font-size: 14px;
+  }
+  .tpl-features-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .tpl-feature-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+    gap: 12px;
+  }
+  .feature-check-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .tpl-feature-card h4 {
+    font-size: 0.98rem;
+    margin-bottom: 4px;
+  }
+  .tpl-feature-card p {
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  .tpl-faqs-list {
+    gap: 10px;
+  }
+  .tpl-faq-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+  .tpl-faq-card h4 {
+    font-size: 0.98rem;
+    margin-bottom: 6px;
+  }
+  .tpl-faq-card p {
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  .tpl-cta-box {
+    padding: 28px 16px;
+    border-radius: 20px;
+  }
+  .tpl-cta-box h2 {
+    font-size: 1.45rem;
+    margin-bottom: 8px;
+    line-height: 1.25;
+  }
+  .tpl-cta-box p {
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+  .tpl-contact-details-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .tpl-contact-detail-item {
+    padding: 12px 14px;
+    border-radius: 12px;
+    gap: 12px;
+  }
+  .tpl-contact-detail-item .detail-icon {
+    font-size: 20px;
+  }
+  .tpl-contact-detail-item .detail-label {
+    font-size: 10px;
+  }
+  .tpl-contact-detail-item strong {
+    font-size: 13px;
+  }
+  .tpl-footer {
+    padding: 28px 0 20px;
+  }
+  .tpl-footer-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    font-size: 12.5px;
   }
 }
 

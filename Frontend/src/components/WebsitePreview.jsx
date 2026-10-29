@@ -22,6 +22,7 @@ function WebsitePreview({
 }) {
   const [activeTemplate, setActiveTemplate] = useState(template);
   const [deviceMode, setDeviceMode] = useState("desktop"); // 'desktop' | 'tablet' | 'mobile'
+  const [frameScrollMode, setFrameScrollMode] = useState("screen"); // 'screen' | 'full'
   const [viewMode, setViewMode] = useState("preview"); // 'preview' | 'code'
   const [downloading, setDownloading] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
@@ -533,16 +534,31 @@ Built with MakeSite AI Engine.
     }
   };
 
-  const handleContactClick = (e) => {
+  const handleScrollToTarget = (targetId, e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const contactElem = document.getElementById("contact");
-    if (contactElem) {
-      contactElem.scrollIntoView({ behavior: "smooth", block: "center" });
-      contactElem.classList.add("highlight-pulse");
-      setTimeout(() => {
-        contactElem.classList.remove("highlight-pulse");
-      }, 1500);
+    const elem = document.getElementById(targetId || "contact");
+    if (!elem) return;
+
+    const screenScrollbox = document.getElementById("device-screen-scrollbox");
+    if (screenScrollbox && deviceMode !== "desktop" && frameScrollMode === "screen") {
+      const containerRect = screenScrollbox.getBoundingClientRect();
+      const elemRect = elem.getBoundingClientRect();
+      const offsetTop = elemRect.top - containerRect.top + screenScrollbox.scrollTop;
+      screenScrollbox.scrollTo({ top: Math.max(0, offsetTop - 12), behavior: "smooth" });
+    } else {
+      elem.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+
+    elem.classList.remove("highlight-pulse");
+    void elem.offsetWidth;
+    elem.classList.add("highlight-pulse");
+    setTimeout(() => {
+      elem.classList.remove("highlight-pulse");
+    }, 1500);
+  };
+
+  const handleContactClick = (e) => {
+    handleScrollToTarget("contact", e);
   };
 
   // Focus a specific field in the editor panel when user clicks an inline element
@@ -637,6 +653,28 @@ Built with MakeSite AI Engine.
               📲 <span className="device-label">Mobile</span>
             </button>
           </div>
+
+          {/* Toggle between Screen View (scroll inside phone/tablet) and Full Page View */}
+          {deviceMode !== "desktop" && (
+            <div className="frame-scroll-pills" title="Switch between realistic device screen and unrolled page">
+              <button
+                type="button"
+                className={`frame-scroll-btn ${frameScrollMode === "screen" ? "active" : ""}`}
+                onClick={() => setFrameScrollMode("screen")}
+                title="Scroll inside device screen"
+              >
+                📱 Screen
+              </button>
+              <button
+                type="button"
+                className={`frame-scroll-btn ${frameScrollMode === "full" ? "active" : ""}`}
+                onClick={() => setFrameScrollMode("full")}
+                title="View full continuous unrolled page"
+              >
+                📜 Full Page
+              </button>
+            </div>
+          )}
 
           <div className="view-mode-toggle">
             <button
@@ -1139,40 +1177,59 @@ Built with MakeSite AI Engine.
               </pre>
             </div>
           ) : (
-            <div className={`device-frame device-frame-${deviceMode}`}>
+            <div className={`device-frame device-frame-${deviceMode} frame-${frameScrollMode}`}>
               {deviceMode !== "desktop" && (
                 <div className="device-notch-bar">
                   <span className="notch-camera"></span>
                   <span className="notch-speaker"></span>
+                  <span className="notch-label">
+                    {deviceMode === "mobile" ? "📱 Mobile 390px" : "📱 Tablet 768px"}
+                    {frameScrollMode === "screen" ? " • Scroll Inside" : " • Full Length"}
+                  </span>
                 </div>
               )}
 
-              {/* Template Render Container */}
-              <div className={`rendered-website template-skin-${activeTemplate} ${isEditing ? "live-editing-active" : ""}`}>
-                {renderTemplateSkin({
-                  templateId: activeTemplate,
-                  businessName,
-                  category,
-                  location,
-                  hours,
-                  contact,
-                  heroTitle,
-                  heroDesc,
-                  aboutText,
-                  cta,
-                  services,
-                  features,
-                  faqs,
-                  onContactClick: handleContactClick,
-                  isEditing,
-                  onUpdateDataField: handleUpdateDataField,
-                  onUpdateContentField: handleUpdateContentField,
-                  onUpdateService: handleUpdateService,
-                  onUpdateFeature: handleUpdateFeature,
-                  onUpdateFaq: handleUpdateFaq,
-                  onFocusField: handleFocusFieldFromCanvas,
-                })}
+              {/* Template Render Container with inner screen scrollbox */}
+              <div
+                className="device-screen-scrollbox"
+                id="device-screen-scrollbox"
+                tabIndex={0}
+                role="region"
+                aria-label={`${deviceMode} website preview`}
+              >
+                <div className={`rendered-website template-skin-${activeTemplate} ${isEditing ? "live-editing-active" : ""}`}>
+                  {renderTemplateSkin({
+                    templateId: activeTemplate,
+                    businessName,
+                    category,
+                    location,
+                    hours,
+                    contact,
+                    heroTitle,
+                    heroDesc,
+                    aboutText,
+                    cta,
+                    services,
+                    features,
+                    faqs,
+                    onContactClick: handleContactClick,
+                    onNavigateToSection: handleScrollToTarget,
+                    isEditing,
+                    onUpdateDataField: handleUpdateDataField,
+                    onUpdateContentField: handleUpdateContentField,
+                    onUpdateService: handleUpdateService,
+                    onUpdateFeature: handleUpdateFeature,
+                    onUpdateFaq: handleUpdateFaq,
+                    onFocusField: handleFocusFieldFromCanvas,
+                  })}
+                </div>
               </div>
+
+              {deviceMode !== "desktop" && (
+                <div className="device-bottom-bar">
+                  <span className="device-home-pill"></span>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -1201,6 +1258,7 @@ function renderTemplateSkin(props) {
     features,
     faqs,
     onContactClick,
+    onNavigateToSection,
     isEditing,
     onUpdateDataField,
     onUpdateContentField,
@@ -1239,10 +1297,10 @@ function renderTemplateSkin(props) {
             {isEditing && <span className="inline-pen-badge">✎</span>}
           </div>
           <div className="tpl-nav-links">
-            <a href="#about" onClick={(e) => { e.preventDefault(); document.getElementById("about")?.scrollIntoView({ behavior: "smooth" }); }}>About</a>
-            <a href="#services" onClick={(e) => { e.preventDefault(); document.getElementById("services")?.scrollIntoView({ behavior: "smooth" }); }}>Services</a>
+            <a href="#about" onClick={(e) => onNavigateToSection ? onNavigateToSection("about", e) : onContactClick(e)}>About</a>
+            <a href="#services" onClick={(e) => onNavigateToSection ? onNavigateToSection("services", e) : onContactClick(e)}>Services</a>
             {features && features.length > 0 && (
-              <a href="#features" onClick={(e) => { e.preventDefault(); document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); }}>Features</a>
+              <a href="#features" onClick={(e) => onNavigateToSection ? onNavigateToSection("features", e) : onContactClick(e)}>Features</a>
             )}
             <a href="#contact" className="tpl-nav-cta" onClick={onContactClick}>Contact &darr;</a>
           </div>
