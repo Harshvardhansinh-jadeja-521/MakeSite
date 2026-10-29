@@ -34,6 +34,7 @@ const SAMPLE_PROMPTS = [
 
 function App() {
   const [description, setDescription] = useState("");
+  const [descriptionError, setDescriptionError] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState("");
@@ -42,6 +43,8 @@ function App() {
   const [selectedTemplate, setSelectedTemplate] = useState("modern-dark");
   const [websiteContent, setWebsiteContent] = useState(null);
   const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [clarificationError, setClarificationError] = useState("");
+  const [isValidatingClarification, setIsValidatingClarification] = useState(false);
   const [currentField, setCurrentField] = useState(null);
   const [apiHealth, setApiHealth] = useState({ status: "checking", groq: false });
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -85,15 +88,17 @@ function App() {
   // --------------------------------
   const handleSubmit = async () => {
     if (!description.trim()) {
-      alert("Please provide a description of your business first.");
+      setDescriptionError("Please describe your business in a few sentences to get started.");
       return;
     }
 
     setLoading(true);
-    setLoadingStage("Analyzing description & extracting entities...");
+    setLoadingStage("Analyzing description & validating details...");
+    setDescriptionError("");
     setResult(null);
     setCurrentField(null);
     setClarificationAnswer("");
+    setClarificationError("");
     setWebsiteContent(null);
 
     try {
@@ -106,7 +111,13 @@ function App() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.detail || "Backend extraction request failed");
+        setDescriptionError(
+          data?.detail ||
+            data?.error ||
+            "Unable to extract business data. Please check your description."
+        );
+        setResult(null);
+        return;
       }
 
       setResult(data);
@@ -126,11 +137,9 @@ function App() {
       }
     } catch (err) {
       console.error("Extraction error:", err);
-      setResult({
-        error:
-          err.message ||
-          "Unable to extract business data. Ensure backend is running at http://127.0.0.1:8000.",
-      });
+      setDescriptionError(
+        "Unable to connect to MakeSite AI backend. Ensure backend is running at http://127.0.0.1:8000."
+      );
     } finally {
       setLoading(false);
       setLoadingStage("");
@@ -138,40 +147,66 @@ function App() {
   };
 
   // --------------------------------
-  // Clarification Input Submission
+  // Clarification Input Submission (Smart Validation)
   // --------------------------------
-  const handleClarificationSubmit = () => {
-    if (!clarificationAnswer.trim()) return;
+  const handleClarificationSubmit = async () => {
+    if (!clarificationAnswer.trim() || isValidatingClarification) return;
 
-    const updatedData = {
-      ...result.data,
-      [currentField]: clarificationAnswer.trim(),
-    };
+    setIsValidatingClarification(true);
+    setClarificationError("");
 
-    let remainingMissing = (result.missing_fields || []).filter(
-      (f) => f !== currentField
-    );
+    try {
+      const response = await fetch("http://127.0.0.1:8000/update-business", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_data: result.data,
+          field: currentField,
+          value: clarificationAnswer.trim(),
+        }),
+      });
 
-    // Re-verify contact requirement
-    if (currentField !== "contact" && (!updatedData.contact || !String(updatedData.contact).trim())) {
-      if (!remainingMissing.includes("contact")) {
-        remainingMissing.push("contact");
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Backend rejected invalid input with friendly error message!
+        // Previous accepted fields in result.data remain 100% untouched!
+        setClarificationError(
+          data?.detail ||
+            data?.error ||
+            `Invalid ${currentField.replace("_", " ")}. Please try again.`
+        );
+        return;
       }
-    }
 
-    setResult({
-      ...result,
-      data: updatedData,
-      missing_fields: remainingMissing,
-      is_complete: remainingMissing.length === 0,
-    });
+      // Validated successfully!
+      const missing = [...(data.missing_fields || [])];
+      if (!data.data?.contact || !String(data.data.contact).trim()) {
+        if (!missing.includes("contact")) {
+          missing.push("contact");
+        }
+      }
 
-    setClarificationAnswer("");
+      setResult({
+        ...result,
+        data: data.data,
+        missing_fields: missing,
+        is_complete: missing.length === 0,
+      });
 
-    if (remainingMissing.length > 0) {
-      setCurrentField(remainingMissing[0]);
-    } else {
-      setCurrentField(null);
+      setClarificationAnswer("");
+      setClarificationError("");
+
+      if (missing.length > 0) {
+        setCurrentField(missing[0]);
+      } else {
+        setCurrentField(null);
+      }
+    } catch (err) {
+      console.error("Clarification update error:", err);
+      setClarificationError("Connection error while validating. Please try again.");
+    } finally {
+      setIsValidatingClarification(false);
     }
   };
 
@@ -181,10 +216,18 @@ function App() {
   const generateWebsiteContent = async () => {
     if (!result?.data) return;
 
-    // Compulsory contact validation guard
-    if (!result.data.contact || !String(result.data.contact).trim()) {
-      setCurrentField("contact");
-      alert("Contact details (phone number or email) are compulsory before generating the website.");
+    // Compulsory validation guard
+    const required = ["business_name", "category", "location", "contact"];
+    const missing = required.filter(
+      (f) => !result.data[f] || !String(result.data[f]).trim()
+    );
+    if (missing.length > 0) {
+      setCurrentField(missing[0]);
+      alert(
+        `The following required business information is missing or invalid: ${missing
+          .map((f) => f.replace("_", " "))
+          .join(", ")}. Please provide all required details before generating the website.`
+      );
       return;
     }
 
@@ -251,22 +294,34 @@ function App() {
   };
 
   const handleFieldChange = (field, value) => {
-    setResult((prev) => ({
-      ...prev,
-      data: {
+    setResult((prev) => {
+      const updatedData = {
         ...prev.data,
         [field]: value,
-      },
-    }));
+      };
+      const required = ["business_name", "category", "location", "contact"];
+      const missing = required.filter(
+        (f) => !updatedData[f] || !String(updatedData[f]).trim()
+      );
+      return {
+        ...prev,
+        data: updatedData,
+        missing_fields: missing,
+        is_complete: missing.length === 0,
+      };
+    });
   };
 
   const handleStartAgain = () => {
     setResult(null);
     setDescription("");
+    setDescriptionError("");
     setShowWebsite(false);
     setShowTemplates(false);
     setWebsiteContent(null);
     setCurrentField(null);
+    setClarificationAnswer("");
+    setClarificationError("");
     setIsEditingInfo(false);
   };
 
@@ -492,7 +547,10 @@ function App() {
                   className="textarea"
                   placeholder="Tell MakeSite about your business — name, location, products, hours, and contact details..."
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (descriptionError) setDescriptionError("");
+                  }}
                   rows={5}
                 />
                 <div className="textarea-toolbar">
@@ -502,7 +560,10 @@ function App() {
                       <button
                         type="button"
                         className="btn-clear"
-                        onClick={() => setDescription("")}
+                        onClick={() => {
+                          setDescription("");
+                          setDescriptionError("");
+                        }}
                       >
                         Clear
                       </button>
@@ -512,11 +573,23 @@ function App() {
                     <VoiceInput
                       onTranscript={(text) => {
                         setDescription((prev) => (prev ? `${prev} ${text}` : text));
+                        if (descriptionError) setDescriptionError("");
                       }}
                     />
                   </div>
                 </div>
               </div>
+
+              {/* Friendly Validation Error for Business Description */}
+              {descriptionError && (
+                <div className="description-error-banner" role="alert">
+                  <span className="description-error-icon">⚠️</span>
+                  <div className="description-error-content">
+                    <div className="description-error-title">Please check your business description</div>
+                    <p className="description-error-text">{descriptionError}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Submit */}
               <button
@@ -551,9 +624,9 @@ function App() {
               </div>
               <div className="feature-card">
                 <div className="feature-accent-line" />
-                <h3 className="feature-title">Contact Validated</h3>
+                <h3 className="feature-title">Smart Validated</h3>
                 <p className="feature-desc">
-                  Phone or email is validated upfront so every visitor can connect directly.
+                  Phone, email, name, and trade category are validated so your business shines.
                 </p>
               </div>
               <div className="feature-card">
@@ -610,9 +683,9 @@ function App() {
 
                 {/* Fields Grid */}
                 <div className="fields-grid">
-                  <BlueprintField label="Business Name" field="business_name" value={result.data.business_name} isEditing={isEditingInfo} onChange={handleFieldChange} />
-                  <BlueprintField label="Category" field="category" value={result.data.category} isEditing={isEditingInfo} onChange={handleFieldChange} />
-                  <BlueprintField label="Location" field="location" value={result.data.location} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Business Name" field="business_name" value={result.data.business_name} isRequired={true} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Category" field="category" value={result.data.category} isRequired={true} isEditing={isEditingInfo} onChange={handleFieldChange} />
+                  <BlueprintField label="Location" field="location" value={result.data.location} isRequired={true} isEditing={isEditingInfo} onChange={handleFieldChange} />
                   <BlueprintField label="Hours" field="hours" value={result.data.hours} isEditing={isEditingInfo} onChange={handleFieldChange} />
                   <BlueprintField label="Contact" field="contact" value={result.data.contact} isRequired={true} isEditing={isEditingInfo} onChange={handleFieldChange} />
                   <BlueprintField label="Owner" field="owner_name" value={result.data.owner_name} isEditing={isEditingInfo} onChange={handleFieldChange} />
@@ -636,36 +709,54 @@ function App() {
                   )}
                 </div>
 
-                {/* Clarification */}
+                {/* Clarification Box */}
                 {currentField && (
                   <div className="clarification-box">
                     <div className="clarification-header">
                       <span className="clarification-tag">Required</span>
-                      <h4>{questions[currentField] || `Please specify ${currentField}`}</h4>
+                      <h4>{questions[currentField] || `Please specify ${currentField.replace('_', ' ')}`}</h4>
                     </div>
                     <div className="clarification-input-row">
                       <input
                         type="text"
-                        className="text-input"
+                        className={`text-input ${clarificationError ? "has-error" : ""}`}
                         placeholder="Type your answer..."
                         value={clarificationAnswer}
-                        onChange={(e) => setClarificationAnswer(e.target.value)}
+                        onChange={(e) => {
+                          setClarificationAnswer(e.target.value);
+                          if (clarificationError) setClarificationError("");
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && !loading) {
+                          if (e.key === "Enter" && !isValidatingClarification && clarificationAnswer.trim()) {
                             handleClarificationSubmit();
                           }
                         }}
                         autoFocus
+                        disabled={isValidatingClarification}
                       />
+                      <div className="clarification-voice-btn-wrap">
+                        <VoiceInput
+                          onTranscript={(text) => {
+                            setClarificationAnswer(text);
+                            if (clarificationError) setClarificationError("");
+                          }}
+                        />
+                      </div>
                       <button
                         type="button"
                         className="btn-primary btn-save"
                         onClick={handleClarificationSubmit}
-                        disabled={loading || !clarificationAnswer.trim()}
+                        disabled={isValidatingClarification || !clarificationAnswer.trim()}
                       >
-                        {loading ? "Saving..." : "Save →"}
+                        {isValidatingClarification ? "Validating..." : "Save →"}
                       </button>
                     </div>
+                    {clarificationError && (
+                      <div className="clarification-error-banner" role="alert">
+                        <span className="error-icon">⚠️</span>
+                        <span>{clarificationError}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -686,16 +777,22 @@ function App() {
 
                 <div className="checklist">
                   <div className="check-item">
-                    <span className={`check-dot ${result.data.business_name ? "active" : ""}`} />
-                    <span>Name: {result.data.business_name || "Missing"}</span>
+                    <span className={`check-dot ${result.data.business_name ? "active" : "missing"}`} />
+                    <span>
+                      Name: {result.data.business_name || <strong style={{ color: "var(--accent-secondary)" }}>Required</strong>}
+                    </span>
                   </div>
                   <div className="check-item">
-                    <span className={`check-dot ${result.data.category ? "active" : ""}`} />
-                    <span>Category: {result.data.category || "Missing"}</span>
+                    <span className={`check-dot ${result.data.category ? "active" : "missing"}`} />
+                    <span>
+                      Category: {result.data.category || <strong style={{ color: "var(--accent-secondary)" }}>Required</strong>}
+                    </span>
                   </div>
                   <div className="check-item">
-                    <span className={`check-dot ${result.data.location ? "active" : ""}`} />
-                    <span>Location: {result.data.location || "Missing"}</span>
+                    <span className={`check-dot ${result.data.location ? "active" : "missing"}`} />
+                    <span>
+                      Location: {result.data.location || <strong style={{ color: "var(--accent-secondary)" }}>Required</strong>}
+                    </span>
                   </div>
                   <div className="check-item">
                     <span className={`check-dot ${result.data.contact ? "active" : "missing"}`} />
@@ -705,21 +802,32 @@ function App() {
                   </div>
                 </div>
 
-                {!result.data.contact && (
+                {(!result.data.business_name || !result.data.category || !result.data.location || !result.data.contact) && (
                   <div className="warning-box">
                     <div className="warning-title">
-                      <span>⚠️</span> Contact Required
+                      <span>⚠️</span> Required Details Missing
                     </div>
                     <p className="warning-text">
-                      Enter a phone number or email to continue.
+                      Please provide all required business details ({[
+                        !result.data.business_name && "Name",
+                        !result.data.category && "Category",
+                        !result.data.location && "Location",
+                        !result.data.contact && "Contact",
+                      ].filter(Boolean).join(", ")}) to generate your website.
                     </p>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setCurrentField("contact")}
-                    >
-                      + Add Contact
-                    </button>
+                    {!currentField && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          const reqs = ["business_name", "category", "location", "contact"];
+                          const firstMissing = reqs.find((f) => !result.data[f] || !String(result.data[f]).trim());
+                          if (firstMissing) setCurrentField(firstMissing);
+                        }}
+                      >
+                        + Complete Missing Info
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -728,7 +836,15 @@ function App() {
                     type="button"
                     className="btn-primary btn-full"
                     onClick={generateWebsiteContent}
-                    disabled={loading || !!currentField || !result.data.contact}
+                    disabled={
+                      loading ||
+                      !!currentField ||
+                      !result.data.business_name ||
+                      !result.data.category ||
+                      !result.data.location ||
+                      !result.data.contact ||
+                      (result.missing_fields && result.missing_fields.length > 0)
+                    }
                     id="generate-website-btn"
                   >
                     {loading ? (

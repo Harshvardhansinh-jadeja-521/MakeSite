@@ -1037,3 +1037,80 @@
   color: var(--text-1);
   margin-bottom: var(--space-lg);
 }
+
+/* ==============================================================================
+   VALIDATION BANNERS & ENHANCEMENTS
+============================================================================== */
+.description-error-banner {
+  margin-top: var(--space-md);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  animation: fadeIn 0.3s ease;
+}
+
+.description-error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.description-error-content {
+  flex: 1;
+}
+
+.description-error-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-bottom: 3px;
+}
+
+.description-error-text {
+  font-size: 12.5px;
+  color: var(--text-1);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.clarification-error-banner {
+  margin-top: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-0);
+  line-height: 1.4;
+  animation: fadeIn 0.25s ease;
+}
+
+.clarification-error-banner .error-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.text-input.has-error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+.clarification-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clarification-voice-btn-wrap {
+  display: flex;
+  align-items: center;
+}

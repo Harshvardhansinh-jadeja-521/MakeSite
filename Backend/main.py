@@ -23,7 +23,12 @@ from schemas import (
     RephraseResponse,
     ErrorResponse,
 )
-from extraction import async_extract_business_info, PRIMARY_MODEL, FALLBACK_MODEL
+from extraction import async_extract_business_info, PRIMARY_MODEL, FALLBACK_MODEL, async_client
+from validation import (
+    validate_clarification_field,
+    validate_field_sync,
+    validate_initial_description,
+)
 from content_generation import async_generate_website_content, async_rephrase_section
 from website_generator import (
     generate_standalone_website_html,
@@ -87,17 +92,25 @@ app.add_middleware(
 
 
 # ----------------------------------------------------
-# Helper: Determine Missing Required Fields (DRY)
+# Helper: Determine Missing Required Fields (DRY & Validated)
 # ----------------------------------------------------
 REQUIRED_FIELDS = ["business_name", "category", "location", "contact"]
 
 
 def get_missing_fields(business_info: BusinessInfo) -> List[str]:
-    """Finds which essential fields are still None or blank."""
+    """
+    Finds which essential fields are still None, blank, or invalid.
+    Never marks invalid answers or random gibberish as confirmed.
+    """
     missing = []
     for field in REQUIRED_FIELDS:
         val = getattr(business_info, field, None)
         if val is None or (isinstance(val, str) and not val.strip()):
+            missing.append(field)
+            continue
+        # Strict validation: verify that the value actually satisfies rules
+        validation_res = validate_field_sync(field, str(val))
+        if not validation_res.valid:
             missing.append(field)
     return missing
 
@@ -109,11 +122,23 @@ def get_missing_fields(business_info: BusinessInfo) -> List[str]:
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     req_id = getattr(request.state, "request_id", "unknown")
     logger.warning(f"[{req_id}] Validation error on {request.url.path}: {exc.errors()}")
+    # Format friendly message from first error if available
+    friendly_msg = "Invalid request payload"
+    errors = exc.errors()
+    if errors and len(errors) > 0:
+        first_err = errors[0]
+        msg = first_err.get("msg", "")
+        if "Value error," in msg:
+            friendly_msg = msg.split("Value error,")[-1].strip()
+        elif msg:
+            friendly_msg = msg
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "error": "Invalid request payload",
-            "detail": exc.errors(),
+            "error": "Validation Error",
+            "detail": friendly_msg,
+            "errors": exc.errors(),
             "request_id": req_id,
         },
     )
@@ -185,11 +210,41 @@ async def extract(request: BusinessRequest):
     """
     Extracts structured business metadata from freeform descriptions
     in English, Hindi, Hinglish, or any regional language.
+    Validates against gibberish, random numbers, and off-topic prompts.
     """
+    # 1. Fast pre-validation
+    is_valid, err_msg = validate_initial_description(request.description)
+    if not is_valid:
+        logger.warning(f"Rejected invalid description: {err_msg}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "Invalid business description",
+                "detail": err_msg,
+                "field": "description",
+            },
+        )
+
     result_raw = await async_extract_business_info(request.description)
 
     try:
         data = json.loads(result_raw)
+
+        # 2. Check if AI validation rejected the input
+        if not data.get("is_valid_business", True):
+            rejection_reason = data.get("rejection_reason") or (
+                "Your input does not appear to describe a business or commercial service. "
+                "Please describe what your business does, what services/products you offer, and where you are located."
+            )
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "Invalid business description",
+                    "detail": rejection_reason,
+                    "field": "description",
+                },
+            )
+
         business_info = BusinessInfo(**data)
         missing_fields = get_missing_fields(business_info)
 
@@ -221,13 +276,34 @@ async def extract(request: BusinessRequest):
 )
 async def update_business(request: BusinessUpdateRequest):
     """
-    Applies user answers for missing fields during clarification flow.
+    Validates and applies user answers for missing fields during clarification flow.
+    Rejects invalid answers with friendly error messages without altering previously accepted information.
     """
-    business_dict = request.business_data.model_dump()
     target_field = request.field
+    raw_value = request.value
 
-    # Update requested field
-    business_dict[target_field] = request.value
+    # Validate input against specific field rules and AI semantic check
+    val_result = await validate_clarification_field(
+        field=target_field,
+        value=raw_value,
+        async_client=async_client
+    )
+
+    if not val_result.valid:
+        logger.info(f"Rejected invalid clarification value for '{target_field}': {val_result.error}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": f"Invalid {target_field.replace('_', ' ').title()}",
+                "detail": val_result.error or f"Please provide a valid {target_field.replace('_', ' ')}.",
+                "field": target_field,
+                "value": raw_value,
+            },
+        )
+
+    # Use the cleaned/normalized value
+    business_dict = request.business_data.model_dump()
+    business_dict[target_field] = val_result.cleaned_value
 
     # Re-validate model
     updated_business = BusinessInfo(**business_dict)
@@ -246,14 +322,26 @@ async def update_business(request: BusinessUpdateRequest):
 @app.post(
     "/generate-content",
     response_model=ContentGenerationResponse,
-    responses={500: {"model": ErrorResponse}},
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     tags=["Core AI"],
 )
 async def generate_content(request: BusinessInfo):
     """
     Generates compelling, conversion-focused website copy (hero, about,
     services, and CTA) using the extracted business profile.
+    Guarded: All required fields must be properly validated before generating.
     """
+    missing = get_missing_fields(request)
+    if missing:
+        logger.warning(f"Attempted content generation with missing or invalid fields: {missing}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "Incomplete Business Profile",
+                "detail": f"Cannot generate website. The following required fields are missing or invalid: {', '.join(missing)}. Please provide all required details before proceeding.",
+            },
+        )
+
     result_raw = await async_generate_website_content(request.model_dump())
 
     try:
@@ -280,13 +368,26 @@ async def generate_content(request: BusinessInfo):
 @app.post(
     "/generate-html",
     response_model=GenerateHtmlResponse,
+    responses={400: {"model": ErrorResponse}},
     tags=["Website Generator"],
 )
 async def generate_html(request: GenerateHtmlRequest):
     """
     Renders standalone production-ready HTML with embedded CSS and modern
     typography for direct preview or download.
+    Guarded: All required fields must be properly validated before generating.
     """
+    missing = get_missing_fields(request.business_data)
+    if missing:
+        logger.warning(f"Attempted HTML generation with missing or invalid fields: {missing}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "Incomplete Business Profile",
+                "detail": f"Cannot generate website HTML. Required fields missing or invalid: {', '.join(missing)}.",
+            },
+        )
+
     html_output = generate_standalone_website_html(
         business_data=request.business_data.model_dump(),
         content=request.content,
