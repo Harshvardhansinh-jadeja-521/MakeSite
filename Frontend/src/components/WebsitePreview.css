@@ -238,10 +238,18 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 24px 16px 80px;
   background: #08090d;
   background-image:
     radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.05) 0%, transparent 60%);
+}
+
+.preview-canvas-container.mode-desktop {
+  padding: 0 0 80px;
+}
+
+.preview-canvas-container.mode-tablet,
+.preview-canvas-container.mode-mobile {
+  padding: 24px 16px 80px;
 }
 
 .device-frame {
@@ -252,8 +260,14 @@
 }
 
 .device-frame-desktop {
+  width: 100%;
   max-width: 100%;
   box-shadow: none;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  display: block;
 }
 
 .device-frame-tablet {

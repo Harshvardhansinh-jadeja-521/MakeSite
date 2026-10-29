@@ -546,7 +546,15 @@ Built with MakeSite AI Engine.
       const offsetTop = elemRect.top - containerRect.top + screenScrollbox.scrollTop;
       screenScrollbox.scrollTo({ top: Math.max(0, offsetTop - 12), behavior: "smooth" });
     } else {
-      elem.scrollIntoView({ behavior: "smooth", block: "center" });
+      const canvas = document.querySelector(".preview-canvas-container");
+      if (canvas) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const elemRect = elem.getBoundingClientRect();
+        const offsetTop = elemRect.top - canvasRect.top + canvas.scrollTop;
+        canvas.scrollTo({ top: Math.max(0, offsetTop - 20), behavior: "smooth" });
+      } else {
+        elem.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     }
 
     elem.classList.remove("highlight-pulse");
@@ -1163,7 +1171,7 @@ Built with MakeSite AI Engine.
         {/* ============================================================
             MAIN PREVIEW CANVAS AREA
         ============================================================ */}
-        <main className={`preview-canvas-container ${isEditing ? "with-sidebar-open" : ""}`}>
+        <main className={`preview-canvas-container mode-${deviceMode} ${isEditing ? "with-sidebar-open" : ""}`}>
           {viewMode === "code" ? (
             <div className="code-viewer-panel">
               <div className="code-viewer-header">
@@ -1176,20 +1184,48 @@ Built with MakeSite AI Engine.
                 <code>{getCompleteHtml()}</code>
               </pre>
             </div>
+          ) : deviceMode === "desktop" ? (
+            <div className="device-frame device-frame-desktop">
+              {/* Direct Desktop Render: Fully unconstrained, natural canvas scrolling */}
+              <div className={`rendered-website template-skin-${activeTemplate} ${isEditing ? "live-editing-active" : ""}`}>
+                {renderTemplateSkin({
+                  templateId: activeTemplate,
+                  businessName,
+                  category,
+                  location,
+                  hours,
+                  contact,
+                  heroTitle,
+                  heroDesc,
+                  aboutText,
+                  cta,
+                  services,
+                  features,
+                  faqs,
+                  onContactClick: handleContactClick,
+                  onNavigateToSection: handleScrollToTarget,
+                  isEditing,
+                  onUpdateDataField: handleUpdateDataField,
+                  onUpdateContentField: handleUpdateContentField,
+                  onUpdateService: handleUpdateService,
+                  onUpdateFeature: handleUpdateFeature,
+                  onUpdateFaq: handleUpdateFaq,
+                  onFocusField: handleFocusFieldFromCanvas,
+                })}
+              </div>
+            </div>
           ) : (
             <div className={`device-frame device-frame-${deviceMode} frame-${frameScrollMode}`}>
-              {deviceMode !== "desktop" && (
-                <div className="device-notch-bar">
-                  <span className="notch-camera"></span>
-                  <span className="notch-speaker"></span>
-                  <span className="notch-label">
-                    {deviceMode === "mobile" ? "📱 Mobile 390px" : "📱 Tablet 768px"}
-                    {frameScrollMode === "screen" ? " • Scroll Inside" : " • Full Length"}
-                  </span>
-                </div>
-              )}
+              <div className="device-notch-bar">
+                <span className="notch-camera"></span>
+                <span className="notch-speaker"></span>
+                <span className="notch-label">
+                  {deviceMode === "mobile" ? "📱 Mobile 390px" : "📱 Tablet 768px"}
+                  {frameScrollMode === "screen" ? " • Scroll Inside" : " • Full Length"}
+                </span>
+              </div>
 
-              {/* Template Render Container with inner screen scrollbox */}
+              {/* Template Render Container with inner screen scrollbox (for mobile and tablet) */}
               <div
                 className="device-screen-scrollbox"
                 id="device-screen-scrollbox"
@@ -1225,11 +1261,9 @@ Built with MakeSite AI Engine.
                 </div>
               </div>
 
-              {deviceMode !== "desktop" && (
-                <div className="device-bottom-bar">
-                  <span className="device-home-pill"></span>
-                </div>
-              )}
+              <div className="device-bottom-bar">
+                <span className="device-home-pill"></span>
+              </div>
             </div>
           )}
         </main>
