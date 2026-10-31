@@ -6,6 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from errors import generate_request_id, safe_error_response
+
 # Setup logger
 logging.basicConfig(
     level=logging.INFO,
@@ -23,7 +25,7 @@ class RequestMonitoringMiddleware(BaseHTTPMiddleware):
     3. Logs request lifecycle with structured metrics.
     """
     async def dispatch(self, request: Request, call_next) -> Response:
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+        request_id = request.headers.get("X-Request-ID") or generate_request_id()
         request.state.request_id = request_id
 
         start_time = time.perf_counter()
@@ -86,13 +88,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             retry_after = max(1, int(oldest_in_window + self.window_seconds - now))
             logger.warning(f"Rate limit exceeded for IP {client_ip} on {request.url.path}")
 
-            return JSONResponse(
+            return safe_error_response(
+                request=request,
                 status_code=429,
-                content={
-                    "error": "Rate limit exceeded",
-                    "detail": f"Maximum {self.max_requests} requests per minute. Retry in {retry_after}s.",
-                    "retry_after": retry_after,
-                },
+                error="Rate limit exceeded",
+                detail=f"Maximum {self.max_requests} requests per minute. Retry in {retry_after}s.",
+                extra={"retry_after": retry_after},
                 headers={
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(self.max_requests),

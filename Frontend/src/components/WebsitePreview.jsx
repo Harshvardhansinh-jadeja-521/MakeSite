@@ -277,7 +277,8 @@ function WebsitePreview({
       showToast("✨ AI Suggestions ready! Choose below.");
     } catch (err) {
       console.warn("AI Polish error:", err);
-      showToast(err?.detail || "⚠️ Could not reach AI polish service");
+      const reqInfo = err?.requestId ? ` (Ref: ${err.requestId})` : "";
+      showToast(`${err?.detail || "⚠️ Could not reach AI polish service"}${reqInfo}`);
     } finally {
       setPolishingField(null);
     }

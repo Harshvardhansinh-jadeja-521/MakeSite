@@ -225,11 +225,12 @@ function App() {
       }
     } catch (err) {
       console.error("Extraction error:", err);
+      const reqInfo = err.requestId ? ` (Request ID: ${err.requestId})` : "";
       if (err.status && err.detail) {
-        setDescriptionError(err.detail);
+        setDescriptionError(`${err.detail}${reqInfo}`);
       } else {
         setDescriptionError(
-          `Unable to connect to MakeSite AI backend. Ensure backend is running at ${API_BASE_URL}.`
+          `Unable to connect to MakeSite AI backend. Ensure backend is running at ${API_BASE_URL}.${reqInfo}`
         );
       }
       setResult(null);
@@ -280,9 +281,9 @@ function App() {
       }
     } catch (err) {
       console.error("Clarification update error:", err);
+      const reqInfo = err.requestId ? ` [Ref: ${err.requestId}]` : "";
       setClarificationError(
-        err.detail ||
-        `Invalid ${currentField.replace("_", " ")}. Please try again.`
+        `${err.detail || `Invalid ${currentField.replace("_", " ")}. Please try again.`}${reqInfo}`
       );
     } finally {
       setIsValidatingClarification(false);

@@ -9,18 +9,37 @@ export const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
   "http://127.0.0.1:8000";
 
+/**
+ * Generate a lightweight, unique client-side request tracing ID.
+ */
+export function generateClientRequestId() {
+  return `req_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+}
+
 export class ApiError extends Error {
-  constructor(message, status, data) {
+  constructor(message, status, data, requestId = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
     this.detail = data?.detail || data?.error || message;
+    this.requestId = requestId || data?.request_id || null;
+    this.field = data?.field || null;
+  }
+
+  /**
+   * Returns a friendly, safe display message with Request ID attached for debugging.
+   */
+  getUserMessage() {
+    if (this.requestId) {
+      return `${this.detail} (Request ID: ${this.requestId})`;
+    }
+    return this.detail;
   }
 }
 
 /**
- * Universal request wrapper for fetch with JSON handling and rich error mapping.
+ * Universal request wrapper for fetch with JSON handling, request ID tracking, and rich error mapping.
  */
 export async function apiRequest(endpoint, options = {}) {
   const url = endpoint.startsWith("http")
@@ -29,10 +48,14 @@ export async function apiRequest(endpoint, options = {}) {
 
   const { headers = {}, body, ...customConfig } = options;
 
+  // Preserve existing X-Request-ID or generate new client tracing ID
+  const requestId = headers["X-Request-ID"] || generateClientRequestId();
+
   const config = {
     ...customConfig,
     headers: {
       "Content-Type": "application/json",
+      "X-Request-ID": requestId,
       ...headers,
     },
   };
@@ -61,12 +84,21 @@ export async function apiRequest(endpoint, options = {}) {
     }
   }
 
+  // Extract server-assigned or reflected request ID
+  const responseRequestId =
+    response.headers.get("X-Request-ID") ||
+    (data && typeof data === "object" ? data.request_id : null) ||
+    requestId;
+
   if (!response.ok) {
     const errorMsg =
       data?.detail ||
       data?.error ||
-      (typeof data === "string" && data.trim() ? data : `Request failed with status ${response.status}`);
-    throw new ApiError(errorMsg, response.status, data);
+      (typeof data === "string" && data.trim()
+        ? data
+        : `Request failed with status ${response.status}`);
+
+    throw new ApiError(errorMsg, response.status, data, responseRequestId);
   }
 
   return data;

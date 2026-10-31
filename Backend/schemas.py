@@ -200,4 +200,8 @@ class RephraseResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
+    request_id: Optional[str] = Field(default=None, description="Unique tracing request identifier")
+    status_code: Optional[int] = Field(default=None, description="HTTP status code")
+    field: Optional[str] = Field(default=None, description="Target field associated with validation error")
+    retry_after: Optional[int] = Field(default=None, description="Seconds to wait before retrying for rate limits")
     raw_response: Optional[str] = None
