@@ -68,6 +68,7 @@ function WebsitePreview({
   const location = currentBusinessData?.location || "Regional City";
   const hours = currentBusinessData?.hours || "Regular Operating Hours";
   const contact = currentBusinessData?.contact || "";
+  const products = currentBusinessData?.products || [];
   const industry = detectIndustryArchetype(category, businessName, products);
   const archetypeConfig = getArchetypeConfig(industry, currentBusinessData, currentContent);
 
@@ -1628,9 +1629,11 @@ function renderTemplateSkin(props) {
     features,
     faqs,
     industry = "general",
+    archetypeConfig,
     confirmedFields = new Set(),
     onContactClick,
     onNavigateToSection,
+    onShowToast,
     isEditing,
     onUpdateDataField,
     onUpdateContentField,
