@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import "./WebsitePreview.css";
 import JSZip from "jszip";
+import { rephraseSection, generateWebsiteHtml } from "../api";
 
 const TEMPLATE_OPTIONS = [
   { id: "modern-dark", name: "Neon Cyber", icon: "⚡" },
@@ -257,35 +258,26 @@ function WebsitePreview({
     setPolishingField(sectionKey);
     setPolishResult(null);
     try {
-      const res = await fetch("http://127.0.0.1:8000/rephrase-section", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          section: sectionKey,
-          text: currentVal,
-          business_name: businessName,
-          category: category,
-          style: tone,
-        }),
+      const data = await rephraseSection({
+        section: sectionKey,
+        text: currentVal,
+        businessName: businessName,
+        category: category,
+        style: tone,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const allSuggestions = [data.improved, ...(data.alternatives || [])].filter(
-          (item, idx, self) => item && typeof item === "string" && self.indexOf(item) === idx
-        );
+      const allSuggestions = [data.improved, ...(data.alternatives || [])].filter(
+        (item, idx, self) => item && typeof item === "string" && self.indexOf(item) === idx
+      );
 
-        setPolishResult({
-          field: sectionKey,
-          suggestions: allSuggestions,
-        });
-        showToast("✨ AI Suggestions ready! Choose below.");
-      } else {
-        showToast("⚠️ AI Polish request failed");
-      }
+      setPolishResult({
+        field: sectionKey,
+        suggestions: allSuggestions,
+      });
+      showToast("✨ AI Suggestions ready! Choose below.");
     } catch (err) {
       console.warn("AI Polish error:", err);
-      showToast("⚠️ Could not reach AI polish service");
+      showToast(err?.detail || "⚠️ Could not reach AI polish service");
     } finally {
       setPolishingField(null);
     }
@@ -307,25 +299,18 @@ function WebsitePreview({
   useEffect(() => {
     let isCurrent = true;
     const timer = setTimeout(() => {
-      fetch("http://127.0.0.1:8000/generate-html", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_data: currentBusinessData,
-          content: {
-            ...currentContent,
-            hero_title: heroTitle,
-            hero_description: heroDesc,
-            about: aboutText,
-            cta: cta,
-            services: services,
-            features: features,
-            faqs: faqs,
-          },
-          template_id: activeTemplate,
-        }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
+      const contentPayload = {
+        ...currentContent,
+        hero_title: heroTitle,
+        hero_description: heroDesc,
+        about: aboutText,
+        cta: cta,
+        services: services,
+        features: features,
+        faqs: faqs,
+      };
+
+      generateWebsiteHtml(currentBusinessData, contentPayload, activeTemplate)
         .then((data) => {
           if (isCurrent && data && data.html) {
             setServerHtml(data.html);
@@ -541,31 +526,21 @@ function WebsitePreview({
     }
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/generate-html", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_data: currentBusinessData,
-          content: {
-            ...currentContent,
-            hero_title: heroTitle,
-            hero_description: heroDesc,
-            about: aboutText,
-            cta: cta,
-            services: services,
-            features: features,
-            faqs: faqs,
-          },
-          template_id: activeTemplate,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.html) {
-          setServerHtml(data.html);
-          setHtmlCache((prev) => ({ ...prev, [activeTemplate]: data.html }));
-          return data.html;
-        }
+      const contentPayload = {
+        ...currentContent,
+        hero_title: heroTitle,
+        hero_description: heroDesc,
+        about: aboutText,
+        cta: cta,
+        services: services,
+        features: features,
+        faqs: faqs,
+      };
+      const data = await generateWebsiteHtml(currentBusinessData, contentPayload, activeTemplate);
+      if (data && data.html) {
+        setServerHtml(data.html);
+        setHtmlCache((prev) => ({ ...prev, [activeTemplate]: data.html }));
+        return data.html;
       }
     } catch (e) {
       console.warn("Could not fetch server HTML, using client generator:", e);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./TemplateSelector.css";
 import FloatingShapes from "./FloatingShapes";
+import { getTemplates } from "../api";
 
 const FALLBACK_TEMPLATES = [
   {
@@ -97,8 +98,7 @@ function TemplateSelector({ selectedTemplate, onSelect, onContinue, onBack }) {
   // Attempt to fetch latest templates from backend API
   useEffect(() => {
     let isMounted = true;
-    fetch("http://127.0.0.1:8000/templates")
-      .then((res) => (res.ok ? res.json() : null))
+    getTemplates()
       .then((data) => {
         if (isMounted && data && Array.isArray(data.templates) && data.templates.length > 0) {
           setTemplates(data.templates);

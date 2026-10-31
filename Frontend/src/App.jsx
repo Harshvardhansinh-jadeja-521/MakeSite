@@ -8,6 +8,13 @@ import FloatingShapes from "./components/FloatingShapes";
 import logoImg from "./assets/logo.png";
 import logoDarkImg from "./assets/logo-dark.png";
 import logoMarkImg from "./assets/logo-mark.png";
+import {
+  checkHealth,
+  extractBusinessInfo,
+  updateBusinessInfo,
+  generateWebsiteContent as apiGenerateWebsiteContent,
+  API_BASE_URL,
+} from "./api";
 
 const questions = {
   business_name: "What is the official name of your business?",
@@ -151,8 +158,7 @@ function App() {
 
   // Ping backend health on mount
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/health")
-      .then((res) => (res.ok ? res.json() : null))
+    checkHealth()
       .then((data) => {
         if (data) {
           setApiHealth({
@@ -187,23 +193,7 @@ function App() {
     setWebsiteContent(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setDescriptionError(
-          data?.detail ||
-          data?.error ||
-          "Unable to extract business data. Please check your description."
-        );
-        setResult(null);
-        return;
-      }
+      const data = await extractBusinessInfo(description);
 
       setResult(data);
 
@@ -235,9 +225,14 @@ function App() {
       }
     } catch (err) {
       console.error("Extraction error:", err);
-      setDescriptionError(
-        "Unable to connect to MakeSite AI backend. Ensure backend is running at http://127.0.0.1:8000."
-      );
+      if (err.status && err.detail) {
+        setDescriptionError(err.detail);
+      } else {
+        setDescriptionError(
+          `Unable to connect to MakeSite AI backend. Ensure backend is running at ${API_BASE_URL}.`
+        );
+      }
+      setResult(null);
     } finally {
       setLoading(false);
       setLoadingStage("");
@@ -254,28 +249,11 @@ function App() {
     setClarificationError("");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/update-business", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_data: result.data,
-          field: currentField,
-          value: clarificationAnswer.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Backend rejected invalid input with friendly error message!
-        // Previous accepted fields in result.data remain 100% untouched!
-        setClarificationError(
-          data?.detail ||
-          data?.error ||
-          `Invalid ${currentField.replace("_", " ")}. Please try again.`
-        );
-        return;
-      }
+      const data = await updateBusinessInfo(
+        result.data,
+        currentField,
+        clarificationAnswer.trim()
+      );
 
       // Validated successfully!
       const missing = [...(data.missing_fields || [])];
@@ -302,7 +280,10 @@ function App() {
       }
     } catch (err) {
       console.error("Clarification update error:", err);
-      setClarificationError("Connection error while validating. Please try again.");
+      setClarificationError(
+        err.detail ||
+        `Invalid ${currentField.replace("_", " ")}. Please try again.`
+      );
     } finally {
       setIsValidatingClarification(false);
     }
@@ -333,18 +314,7 @@ function App() {
     setLoadingStage("Generating website content...");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(result.data),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.detail || "Content generation failed");
-      }
-
+      const data = await apiGenerateWebsiteContent(result.data);
       setWebsiteContent(data.content);
       setShowTemplates(true);
     } catch (err) {
