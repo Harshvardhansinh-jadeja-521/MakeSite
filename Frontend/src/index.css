@@ -188,11 +188,14 @@
 /* ==============================================================================
    RESETS & GLOBAL STYLES
 ============================================================================== */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background: var(--bg-0);
@@ -216,13 +219,16 @@ html, body {
   width: 7px;
   height: 7px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--bg-4);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-3);
 }
@@ -235,4 +241,23 @@ html, body {
 
 button {
   font-family: inherit;
+}
+
+/* ==============================================================================
+   LOW-END HARDWARE & ACCELERATION OPTIMIZATIONS
+   Optimized for buttery 60fps scrolling and rapid interactions on low-end PCs.
+============================================================================== */
+img, svg {
+  content-visibility: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

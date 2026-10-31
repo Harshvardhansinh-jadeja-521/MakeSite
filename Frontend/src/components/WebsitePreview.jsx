@@ -12,14 +12,36 @@ const TEMPLATE_OPTIONS = [
   { id: "tech-bold", name: "Cyber Engine", icon: "🔥" },
 ];
 
+function detectIndustry(category = "", businessName = "", products = []) {
+  const text = `${category} ${businessName} ${Array.isArray(products) ? products.join(" ") : ""}`.toLowerCase();
+  if (text.match(/cafe|café|coffee|bakery|bistro|restaurant|food|pastry|roaster|tea|brew|diner|kitchen|espresso/)) {
+    return "cafe";
+  }
+  if (text.match(/salon|spa|wellness|beauty|hair|massage|nail|skincare|barber|aesthetic|yoga|therapy|clinic|physio/)) {
+    return "salon";
+  }
+  if (text.match(/finance|financial|wealth|consult|advisor|invest|tax|accounting|fiduciary|audit|cpa|fund|asset|legal|attorney/)) {
+    return "finance";
+  }
+  if (text.match(/shop|store|retail|boutique|hardware|market|print|mechanic|auto|electronics|studio|craft/)) {
+    return "retail";
+  }
+  return "general";
+}
+
 function WebsitePreview({
   businessData,
   websiteContent,
   template = "modern-dark",
+  confirmedFields,
   onUpdateBusinessData,
   onUpdateWebsiteContent,
   onBack,
 }) {
+  const confirmedSet = confirmedFields instanceof Set
+    ? confirmedFields
+    : new Set(Array.isArray(confirmedFields) ? confirmedFields : ["business_name", "category", "location", "hours", "contact"]);
+
   const [activeTemplate, setActiveTemplate] = useState(template);
   const [deviceMode, setDeviceMode] = useState("desktop"); // 'desktop' | 'tablet' | 'mobile'
   const [frameScrollMode, setFrameScrollMode] = useState("screen"); // 'screen' | 'full'
@@ -62,6 +84,7 @@ function WebsitePreview({
   const hours = currentBusinessData?.hours || "Regular Operating Hours";
   const contact = currentBusinessData?.contact || "";
   const products = currentBusinessData?.products || [];
+  const industry = detectIndustry(category, businessName, products);
 
   // Content fallbacks
   const heroTitle = currentContent?.hero_title || `Premier ${category} in ${location}`;
@@ -333,6 +356,106 @@ function WebsitePreview({
   const getCompleteHtml = () => {
     if (serverHtml) return serverHtml;
 
+    const verifiedCount = ["business_name", "category", "location", "hours", "contact"].filter((f) =>
+      Boolean(
+        f === "business_name"
+          ? confirmedSet?.has("business_name")
+          : f === "category"
+          ? confirmedSet?.has("category")
+          : f === "location"
+          ? confirmedSet?.has("location")
+          : f === "hours"
+          ? confirmedSet?.has("hours")
+          : confirmedSet?.has("contact") && contact
+      )
+    ).length;
+
+    let industryHtml = "";
+    if (industry === "cafe") {
+      industryHtml = `
+      <div class="card" style="border-left: 4px solid #e05638; background: #131114;">
+        <span style="font-size:0.85rem; font-weight:700; color:#e5a93b; text-transform:uppercase;">☕ Artisan Roastery & Daily Bakes</span>
+        <h2 style="margin: 8px 0;">Signature Tasting Board & Fresh Roast Schedule</h2>
+        <p style="color:#94a3b8;">Small-batch roasted beans with origin transparency, paired with slow-fermented viennoiserie.</p>
+        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
+          🥐 <strong>07:30 AM:</strong> Fresh Viennoiserie &bull; ☕ <strong>All Day:</strong> Single Origin Roast &bull; 🥖 <strong>11:00 AM:</strong> Sourdough Hearth
+        </div>
+      </div>`;
+    } else if (industry === "salon") {
+      industryHtml = `
+      <div class="card" style="border-left: 4px solid #10b981; background: #0c1514;">
+        <span style="font-size:0.85rem; font-weight:700; color:#34d399; text-transform:uppercase;">🌿 Sanctuary Rituals & Aesthetic Care</span>
+        <h2 style="margin: 8px 0;">Treatment Rituals & Holistic Sanctuary Menu</h2>
+        <p style="color:#94a3b8;">Unhurried botanical sessions designed to calm the nervous system, revive skin radiance, and restore natural balance.</p>
+        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
+          ✨ Private Quiet Suites &bull; 🌿 100% Non-Toxic Formulations &bull; ⏱️ Dedicated 1-on-1 Specialist Care
+        </div>
+      </div>`;
+    } else if (industry === "finance") {
+      industryHtml = `
+      <div class="card" style="border-left: 4px solid #d97706; background: #0e141e;">
+        <span style="font-size:0.85rem; font-weight:700; color:#fbbf24; text-transform:uppercase;">⚖️ Fiduciary Standards & Capital Governance</span>
+        <h2 style="margin: 8px 0;">Fiduciary Oath & Strategic Wealth Mandates</h2>
+        <p style="color:#94a3b8;">Independent advisory unburdened by institutional conflicts of interest. Strict legal duty of care dedicated exclusively to your financial wellbeing.</p>
+        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
+          🛡️ <strong>The Fiduciary Standard:</strong> Transparent fees, zero hidden commissions, and quarterly fiduciary audits.
+        </div>
+      </div>`;
+    } else if (industry === "retail") {
+      industryHtml = `
+      <div class="card" style="border-left: 4px solid #818cf8; background: #111422;">
+        <span style="font-size:0.85rem; font-weight:700; color:#818cf8; text-transform:uppercase;">📦 Inspected Goods & In-Store Inventory</span>
+        <h2 style="margin: 8px 0;">Curated Trade Showcase & Counter</h2>
+        <p style="color:#94a3b8;">Hand-selected inventory, transparent origin tracking, and dependable neighborhood service.</p>
+        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
+          ● In Stock & Ready for Pickup &bull; Hand-Inspected Craft &bull; Direct Local Counter
+        </div>
+      </div>`;
+    }
+
+    const trustManifestHtml = `
+    <div class="card" style="border: 1px solid rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); margin: 30px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <span style="font-size:0.75rem; font-family:monospace; color:#10b981; letter-spacing:1px; text-transform:uppercase;">TRANSPARENCY & ACCURACY AUDIT</span>
+          <h3 style="margin:4px 0 0; color:#ffffff;">MakeSite Verified Trade Manifest</h3>
+        </div>
+        <div style="background:rgba(16,185,129,0.2); color:#34d399; padding:6px 14px; border-radius:999px; font-weight:700; font-size:0.85rem;">
+          ✓ ${verifiedCount} / 5 Facts Verified
+        </div>
+      </div>
+      <p style="font-size:0.9rem; color:#94a3b8; margin: 12px 0 16px;">
+        Public verification manifest: Verified details are confirmed directly with the business owner.
+      </p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid ${confirmedSet?.has("business_name") ? "rgba(16,185,129,0.4)" : "rgba(229,169,59,0.4)"};">
+          <small style="color:#94a3b8; display:block;">Identity</small>
+          <strong>${escapeHtml(businessName)}</strong>
+          <span style="display:block; font-size:0.75rem; color:${confirmedSet?.has("business_name") ? "#10b981" : "#e5a93b"};">${confirmedSet?.has("business_name") ? "✓ Verified" : "⚠️ Pending"}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid ${confirmedSet?.has("category") ? "rgba(16,185,129,0.4)" : "rgba(229,169,59,0.4)"};">
+          <small style="color:#94a3b8; display:block;">Category</small>
+          <strong>${escapeHtml(category)}</strong>
+          <span style="display:block; font-size:0.75rem; color:${confirmedSet?.has("category") ? "#10b981" : "#e5a93b"};">${confirmedSet?.has("category") ? "✓ Verified" : "⚠️ Pending"}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid ${confirmedSet?.has("location") ? "rgba(16,185,129,0.4)" : "rgba(229,169,59,0.4)"};">
+          <small style="color:#94a3b8; display:block;">Location</small>
+          <strong>${escapeHtml(location)}</strong>
+          <span style="display:block; font-size:0.75rem; color:${confirmedSet?.has("location") ? "#10b981" : "#e5a93b"};">${confirmedSet?.has("location") ? "✓ Verified" : "⚠️ Pending"}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid ${confirmedSet?.has("hours") ? "rgba(16,185,129,0.4)" : "rgba(229,169,59,0.4)"};">
+          <small style="color:#94a3b8; display:block;">Schedule</small>
+          <strong>${escapeHtml(hours)}</strong>
+          <span style="display:block; font-size:0.75rem; color:${confirmedSet?.has("hours") ? "#10b981" : "#e5a93b"};">${confirmedSet?.has("hours") ? "✓ Verified" : "⚠️ Estimated"}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid ${confirmedSet?.has("contact") && contact ? "rgba(16,185,129,0.4)" : "rgba(229,169,59,0.4)"};">
+          <small style="color:#94a3b8; display:block;">Direct Comms</small>
+          <strong>${escapeHtml(contact || "Available on request")}</strong>
+          <span style="display:block; font-size:0.75rem; color:${confirmedSet?.has("contact") && contact ? "#10b981" : "#e5a93b"};">${confirmedSet?.has("contact") && contact ? "✓ Verified" : "⚠️ Pending"}</span>
+        </div>
+      </div>
+    </div>`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -345,21 +468,21 @@ function WebsitePreview({
     body { font-family: 'Plus Jakarta Sans', sans-serif; margin:0; padding:40px 20px; background:#08090d; color:#f8fafc; line-height:1.6; }
     .container { max-width: 900px; margin:0 auto; }
     h1 { font-size: 2.8rem; margin: 16px 0; color: #ffffff; }
-    .btn { display: inline-block; background: #2563eb; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; cursor: pointer; border: none; }
-    .btn:hover { background: #1d4ed8; }
+    .btn { display: inline-block; background: #e05638; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; cursor: pointer; border: none; }
+    .btn:hover { background: #c2410c; }
     .card { background: #11141d; padding: 24px; border-radius: 12px; margin: 16px 0; border: 1px solid rgba(255,255,255,0.08); }
     .highlight-pulse { animation: staticPulse 1.8s ease-in-out !important; }
     @keyframes staticPulse {
       0% { transform: scale(1); outline: 3px solid transparent; }
-      25% { transform: scale(1.02); outline: 3px solid #3b82f6; box-shadow: 0 0 35px rgba(59, 130, 246, 0.6); }
-      60% { transform: scale(1.01); outline: 2px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+      25% { transform: scale(1.02); outline: 3px solid #e05638; box-shadow: 0 0 35px rgba(224, 86, 56, 0.6); }
+      60% { transform: scale(1.01); outline: 2px solid #e05638; box-shadow: 0 0 20px rgba(224, 86, 56, 0.4); }
       100% { transform: scale(1); outline: 3px solid transparent; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <p style="text-transform:uppercase; color:#38bdf8; letter-spacing:1px; font-weight:700;">${escapeHtml(category)}</p>
+    <p style="text-transform:uppercase; color:#e5a93b; letter-spacing:1px; font-weight:700;">${escapeHtml(category)}</p>
     <h1>${escapeHtml(heroTitle)}</h1>
     <p style="font-size:1.2rem; color:#94a3b8;">${escapeHtml(heroDesc)}</p>
     <a href="#contact" class="btn">${escapeHtml(cta)} &rarr;</a>
@@ -367,8 +490,10 @@ function WebsitePreview({
       <h2>About ${escapeHtml(businessName)}</h2>
       <p>${escapeHtml(aboutText)}</p>
     </div>
-    <h2>Services</h2>
+    ${industryHtml}
+    <h2>Capabilities & Services</h2>
     ${services.map((s) => `<div class="card"><h3>${escapeHtml(s.name)}</h3><p>${escapeHtml(s.description)}</p></div>`).join("")}
+    ${trustManifestHtml}
     <div class="card" id="contact">
       <h2>Visit & Contact Details</h2>
       <p>📍 <strong>Location:</strong> ${escapeHtml(location)}</p>
@@ -594,6 +719,12 @@ Built with MakeSite AI Engine.
           <button className="tb-btn tb-back" onClick={onBack} title="Return to template picker">
             <span>←</span> Back to Templates
           </button>
+
+          <div className="tb-divider"></div>
+
+          <div className="tb-studio-brand">
+            <img src="/logo-dark.png" alt="MakeSite Studio" className="tb-studio-logo" />
+          </div>
 
           <div className="tb-divider"></div>
 
@@ -1248,6 +1379,8 @@ Built with MakeSite AI Engine.
                     services,
                     features,
                     faqs,
+                    industry,
+                    confirmedFields: confirmedSet,
                     onContactClick: handleContactClick,
                     onNavigateToSection: handleScrollToTarget,
                     isEditing,
@@ -1291,6 +1424,8 @@ function renderTemplateSkin(props) {
     services,
     features,
     faqs,
+    industry = "general",
+    confirmedFields = new Set(),
     onContactClick,
     onNavigateToSection,
     isEditing,
@@ -1332,10 +1467,14 @@ function renderTemplateSkin(props) {
           </div>
           <div className="tpl-nav-links">
             <a href="#about" onClick={(e) => onNavigateToSection ? onNavigateToSection("about", e) : onContactClick(e)}>About</a>
+            <a href="#industry-module" onClick={(e) => onNavigateToSection ? onNavigateToSection("industry-module", e) : onContactClick(e)}>
+              {industry === "cafe" ? "Artisan Menu" : industry === "salon" ? "Rituals" : industry === "finance" ? "Governance" : industry === "retail" ? "Showcase" : "Specialty"}
+            </a>
             <a href="#services" onClick={(e) => onNavigateToSection ? onNavigateToSection("services", e) : onContactClick(e)}>Services</a>
             {features && features.length > 0 && (
               <a href="#features" onClick={(e) => onNavigateToSection ? onNavigateToSection("features", e) : onContactClick(e)}>Features</a>
             )}
+            <a href="#verified-manifest" className="tpl-nav-trust-link" onClick={(e) => onNavigateToSection ? onNavigateToSection("verified-manifest", e) : onContactClick(e)}>✓ Trust Audit</a>
             <a href="#contact" className="tpl-nav-cta" onClick={onContactClick}>Contact &darr;</a>
           </div>
         </div>
@@ -1502,6 +1641,194 @@ function renderTemplateSkin(props) {
         </div>
       </section>
 
+      {/* Industry-Specific Signature Module */}
+      <section className={`tpl-section tpl-industry-section tpl-industry-${industry}`} id="industry-module">
+        <div className="tpl-container">
+          {industry === "cafe" && (
+            <div className="industry-box cafe-box">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">☕ Artisan Roastery & Daily Bakes</span>
+                <h2>Signature Tasting Board & Counter Roster</h2>
+                <p>Small-batch roasted beans with origin transparency, paired with slow-fermented viennoiserie.</p>
+              </div>
+
+              {/* Fresh Bakes Schedule Ticker */}
+              <div className="cafe-schedule-ribbon">
+                <div className="cafe-ticker-item">
+                  <span className="ticker-icon">🥐</span>
+                  <div>
+                    <strong>Morning Pull: 07:30 AM</strong>
+                    <span>Warm Butter Croissants & Almond Danishes</span>
+                  </div>
+                </div>
+                <div className="cafe-ticker-item">
+                  <span className="ticker-icon">☕</span>
+                  <div>
+                    <strong>Single-Origin Espresso: All Day</strong>
+                    <span>Washed Ethiopian Yirgacheffe & Colombian Geisha</span>
+                  </div>
+                </div>
+                <div className="cafe-ticker-item">
+                  <span className="ticker-icon">🥖</span>
+                  <div>
+                    <strong>Sourdough Hearth: 11:00 AM</strong>
+                    <span>Fresh Country Loaves & Focaccia Rounds</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu Board Grid */}
+              <div className="cafe-menu-grid">
+                {services.map((item, i) => (
+                  <div key={i} className="cafe-menu-card">
+                    <div className="cafe-card-top">
+                      <h3 className="cafe-item-name">{item.name}</h3>
+                      <span className="cafe-badge">{i % 2 === 0 ? "🌱 Organic Reserve" : "☕ Barista Selected"}</span>
+                    </div>
+                    <p className="cafe-item-desc">{item.description}</p>
+                    <div className="cafe-card-meta">
+                      <span className="cafe-flavor-note">
+                        {i === 0 ? "Notes: Bergamot, Wild Honey, Jasmine" : i === 1 ? "Crisp Flaky Shell • 72-Hour Lamination" : "Fresh Batch Brewed Daily"}
+                      </span>
+                      <span className="cafe-price-tag">Artisan Crafted</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {industry === "salon" && (
+            <div className="industry-box salon-box">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">🌿 Sanctuary Rituals & Aesthetic Care</span>
+                <h2>Treatment Rituals & Holistic Menu</h2>
+                <p>Unhurried botanical sessions designed to calm the nervous system, revive skin radiance, and nurture wellbeing.</p>
+              </div>
+
+              {/* Sanctuary Guarantee */}
+              <div className="salon-sanctuary-bar">
+                <div className="sanctuary-badge">
+                  <span className="sanctuary-icon">✨</span>
+                  <span>Private Sound-Dampened Suites</span>
+                </div>
+                <div className="sanctuary-badge">
+                  <span className="sanctuary-icon">🌿</span>
+                  <span>100% Non-Toxic & Vegan Formulations</span>
+                </div>
+                <div className="sanctuary-badge">
+                  <span className="sanctuary-icon">⏱️</span>
+                  <span>Unhurried 1-on-1 Dedicated Specialist Time</span>
+                </div>
+              </div>
+
+              {/* Rituals Grid */}
+              <div className="salon-rituals-grid">
+                {services.map((ritual, i) => {
+                  const durations = ["45 Min Express Care", "60 Min Signature Ritual", "90 Min Deep Restoration"];
+                  return (
+                    <div key={i} className="salon-ritual-card">
+                      <div className="salon-card-badge-row">
+                        <span className="duration-pill">⏱️ {durations[i % durations.length]}</span>
+                        <span className="purity-pill">Botanical Reserve</span>
+                      </div>
+                      <h3 className="salon-ritual-title">{ritual.name}</h3>
+                      <p className="salon-ritual-desc">{ritual.description}</p>
+                      <div className="salon-card-footer">
+                        <span className="ritual-sensory">Includes Aromatherapy Scalp & Tension Release</span>
+                        <button type="button" className="salon-inquire-link" onClick={onContactClick}>Inquire Availability &rarr;</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {industry === "finance" && (
+            <div className="industry-box finance-box">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">⚖️ Fiduciary Oath & Strategic Governance</span>
+                <h2>Fiduciary Standards & Capital Advisory</h2>
+                <p>Independent capital stewardship unburdened by institutional conflicts of interest. Strict legal duty of care dedicated exclusively to your financial wellbeing.</p>
+              </div>
+
+              {/* Fiduciary Oath Banner */}
+              <div className="finance-oath-card">
+                <div className="oath-icon-badge">🛡️</div>
+                <div className="oath-body">
+                  <h4>The Fiduciary Oath of Loyalty & Care</h4>
+                  <p>
+                    Every advisory mandate is bound by the fiduciary standard: transparent fees, zero undisclosed kickbacks, and custom-tailored capital preservation architectures.
+                  </p>
+                </div>
+              </div>
+
+              {/* Strategic Pillars Grid */}
+              <div className="finance-pillars-grid">
+                {services.map((pillar, i) => {
+                  const mandates = ["Capital Preservation & Tax Shielding", "Risk Mitigation & Liquidity Governance", "Intergenerational Succession & Trust Setup"];
+                  return (
+                    <div key={i} className="finance-pillar-card">
+                      <span className="pillar-mandate">Pillar 0{i + 1}</span>
+                      <h3 className="pillar-title">{pillar.name}</h3>
+                      <p className="pillar-desc">{pillar.description}</p>
+                      <div className="pillar-metrics">
+                        <div className="metric-item">
+                          <strong>Mandate Focus:</strong>
+                          <span>{mandates[i % mandates.length]}</span>
+                        </div>
+                        <div className="metric-item">
+                          <strong>Standard:</strong>
+                          <span>Quarterly Fiduciary Review</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {industry === "retail" && (
+            <div className="industry-box retail-box">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">📦 Inspected Goods & In-Store Inventory</span>
+                <h2>Curated Showcase & Trade Counter</h2>
+                <p>Hand-selected inventory, transparent origin tracking, and dependable local service.</p>
+              </div>
+
+              <div className="retail-catalog-grid">
+                {services.map((item, i) => (
+                  <div key={i} className="retail-item-card">
+                    <div className="retail-stock-row">
+                      <span className="stock-tag in-stock">● In Stock & Ready</span>
+                      <span className="origin-tag">Hand Inspected</span>
+                    </div>
+                    <h3 className="retail-item-name">{item.name}</h3>
+                    <p className="retail-item-desc">{item.description}</p>
+                    <div className="retail-card-footer">
+                      <span className="pickup-time">📍 Available at {location}</span>
+                      <button type="button" className="retail-inquire-btn" onClick={onContactClick}>Check Details &rarr;</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {industry === "general" && (
+            <div className="industry-box general-box">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">★ Professional Excellence</span>
+                <h2>Specialized Trade Capabilities</h2>
+                <p>Dependable, verified craft standards delivered with client-first dedication across {location}.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Services Section */}
       <section className="tpl-section tpl-services-section" id="services">
         <div className="tpl-container">
@@ -1622,6 +1949,101 @@ function renderTemplateSkin(props) {
         </section>
       )}
 
+      {/* Verified Fact Manifest & Transparency Audit */}
+      <section className="tpl-section tpl-trust-seal-bar" id="verified-manifest">
+        <div className="tpl-container">
+          <div className="trust-seal-inner">
+            <div className="seal-header">
+              <div className="seal-shield-icon">🛡️</div>
+              <div className="seal-header-text">
+                <span className="seal-eyebrow">TRANSPARENCY & DATA FIDELITY AUDIT</span>
+                <h3 className="seal-title">MakeSite Verified Trade Manifest</h3>
+              </div>
+              <div className="seal-score-pill">
+                <span className="score-dot"></span>
+                <span>
+                  {["business_name", "category", "location", "hours", "contact"].filter((f) =>
+                    Boolean(
+                      f === "business_name"
+                        ? confirmedFields?.has("business_name")
+                        : f === "category"
+                        ? confirmedFields?.has("category")
+                        : f === "location"
+                        ? confirmedFields?.has("location")
+                        : f === "hours"
+                        ? confirmedFields?.has("hours")
+                        : confirmedFields?.has("contact") && contact
+                    )
+                  ).length}{" "}
+                  / 5 Facts Verified
+                </span>
+              </div>
+            </div>
+
+            <p className="seal-description">
+              Visitors can rely on this public manifest. Green badges indicate data verified directly by the business owner; yellow badges represent estimated entries awaiting confirmation.
+            </p>
+
+            <div className="seal-badges-row">
+              <div className={`seal-badge-card ${confirmedFields?.has("business_name") ? "verified" : "unconfirmed"}`}>
+                <span className="badge-status-icon">{confirmedFields?.has("business_name") ? "✓" : "⚠️"}</span>
+                <div className="badge-details">
+                  <strong className="badge-name">Business Identity</strong>
+                  <span className="badge-val">{businessName}</span>
+                  <span className="badge-state-label">
+                    {confirmedFields?.has("business_name") ? "Verified by Owner" : "Pending Confirmation"}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`seal-badge-card ${confirmedFields?.has("category") ? "verified" : "unconfirmed"}`}>
+                <span className="badge-status-icon">{confirmedFields?.has("category") ? "✓" : "⚠️"}</span>
+                <div className="badge-details">
+                  <strong className="badge-name">Trade Classification</strong>
+                  <span className="badge-val">{category}</span>
+                  <span className="badge-state-label">
+                    {confirmedFields?.has("category") ? "Verified by Owner" : "Pending Confirmation"}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`seal-badge-card ${confirmedFields?.has("location") ? "verified" : "unconfirmed"}`}>
+                <span className="badge-status-icon">{confirmedFields?.has("location") ? "✓" : "⚠️"}</span>
+                <div className="badge-details">
+                  <strong className="badge-name">Operating Location</strong>
+                  <span className="badge-val">{location}</span>
+                  <span className="badge-state-label">
+                    {confirmedFields?.has("location") ? "Physical Geo Verified" : "Pending Confirmation"}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`seal-badge-card ${confirmedFields?.has("hours") ? "verified" : "unconfirmed"}`}>
+                <span className="badge-status-icon">{confirmedFields?.has("hours") ? "✓" : "⚠️"}</span>
+                <div className="badge-details">
+                  <strong className="badge-name">Operating Schedule</strong>
+                  <span className="badge-val">{hours}</span>
+                  <span className="badge-state-label">
+                    {confirmedFields?.has("hours") ? "Active Hours Verified" : "Estimated Schedule"}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`seal-badge-card ${confirmedFields?.has("contact") && contact ? "verified" : "unconfirmed"}`}>
+                <span className="badge-status-icon">{confirmedFields?.has("contact") && contact ? "✓" : "⚠️"}</span>
+                <div className="badge-details">
+                  <strong className="badge-name">Direct Inquiries</strong>
+                  <span className="badge-val">{contact || "Channel Pending"}</span>
+                  <span className="badge-state-label">
+                    {confirmedFields?.has("contact") && contact ? "Verified Channel Active" : "Channel Pending"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Contact Details Card */}
       <section className="tpl-section tpl-cta-section" id="contact">
         <div className="tpl-container">
@@ -1690,13 +2112,16 @@ function renderTemplateSkin(props) {
 
       {/* Footer */}
       <footer className="tpl-footer">
-        <div className="tpl-container tpl-footer-inner">
+        <div className="tpl-footer-inner">
           <div className="footer-left">
             <strong className="footer-brand">{businessName}</strong>
             <p>&copy; 2026 {businessName}. All rights reserved.</p>
           </div>
           <div className="footer-right">
-            <span>Powered by MakeSite AI</span>
+            <span className="powered-by-tag">
+              <img src="/logo-mark.png" alt="MakeSite" className="powered-by-icon" />
+              Powered by <strong>MakeSite AI</strong>
+            </span>
           </div>
         </div>
       </footer>

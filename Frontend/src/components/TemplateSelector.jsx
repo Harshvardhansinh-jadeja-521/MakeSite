@@ -153,7 +153,9 @@ function TemplateSelector({ selectedTemplate, onSelect, onContinue, onBack }) {
             Step 3 of 4 &bull; Choose Design Architecture
           </div>
 
-          <div className="header-spacer" />
+          <div className="template-nav-brand">
+            <img src="/logo-dark.png" alt="MakeSite" className="template-brand-logo" />
+          </div>
         </div>
 
         <h1 className="template-page-title">Select Your Website Architecture</h1>
