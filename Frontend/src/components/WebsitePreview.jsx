@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import "./WebsitePreview.css";
 import JSZip from "jszip";
 import { rephraseSection, generateWebsiteHtml } from "../api";
+import { detectIndustryArchetype, getArchetypeConfig } from "../utils/industryArchetypes";
 
 const TEMPLATE_OPTIONS = [
   { id: "modern-dark", name: "Neon Cyber", icon: "⚡" },
@@ -12,23 +13,6 @@ const TEMPLATE_OPTIONS = [
   { id: "emerald-wellness", name: "Emerald Oasis", icon: "🌿" },
   { id: "tech-bold", name: "Cyber Engine", icon: "🔥" },
 ];
-
-function detectIndustry(category = "", businessName = "", products = []) {
-  const text = `${category} ${businessName} ${Array.isArray(products) ? products.join(" ") : ""}`.toLowerCase();
-  if (text.match(/cafe|café|coffee|bakery|bistro|restaurant|food|pastry|roaster|tea|brew|diner|kitchen|espresso/)) {
-    return "cafe";
-  }
-  if (text.match(/salon|spa|wellness|beauty|hair|massage|nail|skincare|barber|aesthetic|yoga|therapy|clinic|physio/)) {
-    return "salon";
-  }
-  if (text.match(/finance|financial|wealth|consult|advisor|invest|tax|accounting|fiduciary|audit|cpa|fund|asset|legal|attorney/)) {
-    return "finance";
-  }
-  if (text.match(/shop|store|retail|boutique|hardware|market|print|mechanic|auto|electronics|studio|craft/)) {
-    return "retail";
-  }
-  return "general";
-}
 
 function WebsitePreview({
   businessData,
@@ -84,8 +68,8 @@ function WebsitePreview({
   const location = currentBusinessData?.location || "Regional City";
   const hours = currentBusinessData?.hours || "Regular Operating Hours";
   const contact = currentBusinessData?.contact || "";
-  const products = currentBusinessData?.products || [];
-  const industry = detectIndustry(category, businessName, products);
+  const industry = detectIndustryArchetype(category, businessName, products);
+  const archetypeConfig = getArchetypeConfig(industry, currentBusinessData, currentContent);
 
   // Content fallbacks
   const heroTitle = currentContent?.hero_title || `Premier ${category} in ${location}`;
@@ -357,45 +341,282 @@ function WebsitePreview({
     ).length;
 
     let industryHtml = "";
-    if (industry === "cafe") {
-      industryHtml = `
-      <div class="card" style="border-left: 4px solid #e05638; background: #131114;">
-        <span style="font-size:0.85rem; font-weight:700; color:#e5a93b; text-transform:uppercase;">☕ Artisan Roastery & Daily Bakes</span>
-        <h2 style="margin: 8px 0;">Signature Tasting Board & Fresh Roast Schedule</h2>
-        <p style="color:#94a3b8;">Small-batch roasted beans with origin transparency, paired with slow-fermented viennoiserie.</p>
-        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
-          🥐 <strong>07:30 AM:</strong> Fresh Viennoiserie &bull; ☕ <strong>All Day:</strong> Single Origin Roast &bull; 🥖 <strong>11:00 AM:</strong> Sourdough Hearth
+    if (industry === "salon") {
+      const treatmentCards = (archetypeConfig.treatmentMenu || []).map((t) => `
+        <div class="card" style="border-left: 4px solid #10b981; background: #0c1514; margin: 12px 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:0.8rem; font-weight:700; color:#34d399; text-transform:uppercase;">⏱️ ${escapeHtml(t.duration)}</span>
+            <span style="background:rgba(16,185,129,0.2); color:#34d399; font-weight:800; padding:2px 10px; border-radius:999px; font-size:0.85rem;">${escapeHtml(t.price)}</span>
+          </div>
+          <h3 style="margin: 4px 0 6px;">${escapeHtml(t.name)}</h3>
+          <p style="color:#94a3b8; font-size:0.9rem; margin:0 0 8px;">${escapeHtml(t.description)}</p>
+          <a href="#book-appointment" style="color:#34d399; font-size:0.85rem; font-weight:700; text-decoration:none;">Book This Slot &rarr;</a>
         </div>
-      </div>`;
-    } else if (industry === "salon") {
+      `).join("");
+
+      const stylistsCards = (archetypeConfig.stylists || []).map((s) => `
+        <div class="card" style="text-align:center; background:#121817; padding:16px;">
+          <div style="font-size:2rem; margin-bottom:8px;">✂️</div>
+          <strong>${escapeHtml(s.name)}</strong>
+          <small style="display:block; color:#94a3b8; margin:4px 0;">${escapeHtml(s.role)} &bull; ${escapeHtml(s.exp)}</small>
+          <span style="font-size:0.75rem; color:#34d399;">${escapeHtml(s.spec)}</span>
+        </div>
+      `).join("");
+
       industryHtml = `
-      <div class="card" style="border-left: 4px solid #10b981; background: #0c1514;">
+      <div id="treatment-menu" style="margin: 36px 0;">
         <span style="font-size:0.85rem; font-weight:700; color:#34d399; text-transform:uppercase;">🌿 Sanctuary Rituals & Aesthetic Care</span>
-        <h2 style="margin: 8px 0;">Treatment Rituals & Holistic Sanctuary Menu</h2>
-        <p style="color:#94a3b8;">Unhurried botanical sessions designed to calm the nervous system, revive skin radiance, and restore natural balance.</p>
-        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
-          ✨ Private Quiet Suites &bull; 🌿 100% Non-Toxic Formulations &bull; ⏱️ Dedicated 1-on-1 Specialist Care
+        <h2 style="margin: 8px 0 16px;">Treatment Menu & Holistic Care</h2>
+        ${treatmentCards}
+      </div>
+      <div id="stylists" style="margin: 36px 0;">
+        <h2 style="margin-bottom:16px;">Master Stylists & Aesthetic Team</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+          ${stylistsCards}
         </div>
+      </div>
+      <div id="book-appointment" class="card" style="border:1px solid #10b981; background:#0c1514; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#34d399;">📅 Reserve Your Treatment Slot</h2>
+        <p style="color:#94a3b8;">Select your preferred ritual and time. Our concierge will confirm immediately.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Your Full Name" style="padding:10px; background:#18201f; border:1px solid #283735; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Phone Number" style="padding:10px; background:#18201f; border:1px solid #283735; color:#fff; border-radius:6px;" />
+          <input type="date" style="padding:10px; background:#18201f; border:1px solid #283735; color:#fff; border-radius:6px;" />
+          <select style="padding:10px; background:#18201f; border:1px solid #283735; color:#fff; border-radius:6px;">
+            <option>Morning (10:00 AM - 01:00 PM)</option>
+            <option>Afternoon (01:00 PM - 05:00 PM)</option>
+            <option>Evening (05:00 PM - 08:30 PM)</option>
+          </select>
+        </div>
+        <button type="button" class="btn" style="background:#10b981; margin-top:16px; width:100%;" onclick="alert('✓ Appointment slot reserved! Concierge will confirm via SMS.')">Confirm Appointment Slot &rarr;</button>
       </div>`;
-    } else if (industry === "finance") {
-      industryHtml = `
-      <div class="card" style="border-left: 4px solid #d97706; background: #0e141e;">
-        <span style="font-size:0.85rem; font-weight:700; color:#fbbf24; text-transform:uppercase;">⚖️ Fiduciary Standards & Capital Governance</span>
-        <h2 style="margin: 8px 0;">Fiduciary Oath & Strategic Wealth Mandates</h2>
-        <p style="color:#94a3b8;">Independent advisory unburdened by institutional conflicts of interest. Strict legal duty of care dedicated exclusively to your financial wellbeing.</p>
-        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
-          🛡️ <strong>The Fiduciary Standard:</strong> Transparent fees, zero hidden commissions, and quarterly fiduciary audits.
+    } else if (industry === "cafe") {
+      const menuSections = (archetypeConfig.menuCategories || []).map((cat) => `
+        <div style="margin:20px 0;">
+          <h3 style="color:#e5a93b; border-bottom:1px solid rgba(229,169,59,0.3); padding-bottom:6px;">${escapeHtml(cat.name)}</h3>
+          ${(cat.items || []).map((item) => `
+            <div class="card" style="display:flex; justify-content:space-between; align-items:center; background:#181513; margin:8px 0; padding:14px 18px;">
+              <div>
+                <strong style="font-size:1rem;">${escapeHtml(item.name)}</strong>
+                <span style="font-size:0.75rem; background:rgba(229,169,59,0.15); color:#e5a93b; padding:2px 8px; border-radius:999px; margin-left:8px;">${escapeHtml(item.tag)}</span>
+                <p style="color:#94a3b8; font-size:0.85rem; margin:4px 0 0;">${escapeHtml(item.desc)}</p>
+              </div>
+              <strong style="color:#e5a93b; font-size:1.1rem; white-space:nowrap; margin-left:14px;">${escapeHtml(item.price)}</strong>
+            </div>
+          `).join("")}
         </div>
+      `).join("");
+
+      industryHtml = `
+      <div id="roast-spotlight" class="card" style="border-left:4px solid #e05638; background:#181412; margin:28px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#e5a93b; text-transform:uppercase;">☕ Today's Roast Spotlight</span>
+        <h2 style="margin:6px 0;">${escapeHtml(archetypeConfig.roastSpotlight?.bean || "Single Origin Reserve")}</h2>
+        <p style="color:#94a3b8;">${escapeHtml(archetypeConfig.roastSpotlight?.notes || "Rich cacao and fruit notes")} &bull; ${escapeHtml(archetypeConfig.roastSpotlight?.altitude || "High Altitude")}</p>
+        <small style="color:#e05638; font-weight:700;">${escapeHtml(archetypeConfig.roastSpotlight?.roastDate || "Roasted In-House Weekly")}</small>
+      </div>
+      <div id="cafe-menu" style="margin:36px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#e5a93b; text-transform:uppercase;">☕ Artisan Roastery & Daily Bakes</span>
+        <h2 style="margin:6px 0 16px;">Daily Tasting Menu & Fresh Hearth</h2>
+        ${menuSections}
+      </div>
+      <div id="directions" class="card" style="background:#15171e; margin:28px 0; border:1px solid rgba(255,255,255,0.1);">
+        <h2 style="margin-top:0;">📍 Directions & Transit</h2>
+        <p><strong>Address:</strong> ${escapeHtml(location)}</p>
+        <p style="color:#94a3b8; font-size:0.9rem;">${escapeHtml(archetypeConfig.directionsGuide?.transit || "Close to public transit with customer parking.")}</p>
+        <p style="color:#94a3b8; font-size:0.9rem;"><strong>Dine-In Hours:</strong> ${escapeHtml(hours)}</p>
+        <a href="https://maps.google.com/?q=${encodeURIComponent(location + ' ' + businessName)}" target="_blank" rel="noopener noreferrer" class="btn" style="background:#e05638; margin-top:12px; display:inline-block;">🗺️ Open in Google Maps</a>
+      </div>
+      <div id="table-reservation" class="card" style="border:1px solid #e05638; background:#181211; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#e05638;">☕ Reserve a Table or Pre-Order</h2>
+        <p style="color:#94a3b8;">Skip the queue. Reserve your table or notify the barista for takeaway pickup.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Your Name" style="padding:10px; background:#221817; border:1px solid #3c2522; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Mobile Number" style="padding:10px; background:#221817; border:1px solid #3c2522; color:#fff; border-radius:6px;" />
+          <select style="padding:10px; background:#221817; border:1px solid #3c2522; color:#fff; border-radius:6px;">
+            <option>Table for 2 Guests</option>
+            <option>Table for 4 Guests</option>
+            <option>Table for 6+ Guests</option>
+            <option>Takeaway Pre-Order Pickup</option>
+          </select>
+          <input type="time" style="padding:10px; background:#221817; border:1px solid #3c2522; color:#fff; border-radius:6px;" />
+        </div>
+        <button type="button" class="btn" style="background:#e05638; margin-top:16px; width:100%;" onclick="alert('✓ Table reservation confirmed! We look forward to welcoming you.')">Confirm Reservation &rarr;</button>
       </div>`;
-    } else if (industry === "retail") {
-      industryHtml = `
-      <div class="card" style="border-left: 4px solid #818cf8; background: #111422;">
-        <span style="font-size:0.85rem; font-weight:700; color:#818cf8; text-transform:uppercase;">📦 Inspected Goods & In-Store Inventory</span>
-        <h2 style="margin: 8px 0;">Curated Trade Showcase & Counter</h2>
-        <p style="color:#94a3b8;">Hand-selected inventory, transparent origin tracking, and dependable neighborhood service.</p>
-        <div style="background:rgba(255,255,255,0.04); padding:12px; border-radius:8px; margin: 16px 0; font-size:0.9rem;">
-          ● In Stock & Ready for Pickup &bull; Hand-Inspected Craft &bull; Direct Local Counter
+    } else if (industry === "boutique") {
+      const lookbookCards = (archetypeConfig.lookbookItems || []).map((item) => `
+        <div class="card" style="background:#15121b; border:1px solid rgba(192,132,252,0.2);">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:0.75rem; background:rgba(192,132,252,0.15); color:#c084fc; padding:2px 8px; border-radius:999px;">${escapeHtml(item.tag)}</span>
+            <strong style="color:#c084fc; font-size:1.05rem;">${escapeHtml(item.price)}</strong>
+          </div>
+          <h3 style="margin:4px 0;">${escapeHtml(item.name)}</h3>
+          <small style="color:#a855f7; display:block; margin:4px 0 8px;">🧵 ${escapeHtml(item.fabric)}</small>
+          <p style="color:#94a3b8; font-size:0.85rem; margin:0 0 12px;">${escapeHtml(item.desc)}</p>
+          <a href="#fitting" style="color:#c084fc; font-size:0.85rem; font-weight:700; text-decoration:none;">Reserve for In-Store Fitting &rarr;</a>
         </div>
+      `).join("");
+
+      industryHtml = `
+      <div id="lookbook" style="margin:36px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#c084fc; text-transform:uppercase;">✨ Curated Seasonal Atelier</span>
+        <h2 style="margin:6px 0 16px;">The Signature Collection & Lookbook</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+          ${lookbookCards}
+        </div>
+      </div>
+      <div id="craft" class="card" style="border-left:4px solid #c084fc; background:#14111c; margin:28px 0;">
+        <h2 style="margin-top:0;">🧵 Artisan Provenance & Craft Pillars</h2>
+        <p style="color:#94a3b8;">Direct collaboration with traditional weaving clusters, zero synthetic polymers, and complimentary bespoke master alterations with every ensemble.</p>
+      </div>
+      <div id="fitting" class="card" style="border:1px solid #c084fc; background:#14111c; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#c084fc;">✂️ Book a Private In-Store Fitting Suite</h2>
+        <p style="color:#94a3b8;">Enjoy personalized styling guidance and our master tailor in a private lounge suite.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Your Name" style="padding:10px; background:#1e1828; border:1px solid #3c2a52; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Mobile Number" style="padding:10px; background:#1e1828; border:1px solid #3c2a52; color:#fff; border-radius:6px;" />
+          <input type="date" style="padding:10px; background:#1e1828; border:1px solid #3c2a52; color:#fff; border-radius:6px;" />
+          <input type="text" placeholder="Pieces of Interest / Size" style="padding:10px; background:#1e1828; border:1px solid #3c2a52; color:#fff; border-radius:6px;" />
+        </div>
+        <button type="button" class="btn" style="background:#a855f7; margin-top:16px; width:100%;" onclick="alert('✓ Private fitting reserved! Our stylist will prepare your pieces.')">Reserve Private Suite &rarr;</button>
+      </div>`;
+    } else if (industry === "tuition") {
+      const statsHtml = (archetypeConfig.resultsCounters || []).map((s) => `
+        <div class="card" style="text-align:center; background:#121824; padding:18px;">
+          <span style="font-size:2rem; font-weight:800; color:#38bdf8; display:block;">${escapeHtml(s.number)}</span>
+          <small style="color:#94a3b8; font-size:0.8rem;">${escapeHtml(s.label)}</small>
+        </div>
+      `).join("");
+
+      const batchCards = (archetypeConfig.curriculumBatches || []).map((b) => `
+        <div class="card" style="border-left:4px solid #38bdf8; background:#0f172a; margin:12px 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <h3 style="margin:0;">${escapeHtml(b.grade)}</h3>
+            <span style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:0.75rem; padding:2px 8px; border-radius:999px;">${escapeHtml(b.badge)}</span>
+          </div>
+          <p style="color:#38bdf8; font-weight:600; font-size:0.9rem; margin:4px 0;">📖 ${escapeHtml(b.subjects)}</p>
+          <small style="display:block; color:#fbbf24; margin:4px 0 8px;">🕒 ${escapeHtml(b.schedule)}</small>
+          <p style="color:#94a3b8; font-size:0.85rem; margin:0 0 10px;">${escapeHtml(b.features)}</p>
+          <a href="#demo-class" style="color:#38bdf8; font-size:0.85rem; font-weight:700; text-decoration:none;">Enroll in Free Demo &rarr;</a>
+        </div>
+      `).join("");
+
+      industryHtml = `
+      <div id="results" style="margin:36px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#38bdf8; text-transform:uppercase;">🎓 Proven Academic Track Record</span>
+        <h2 style="margin:6px 0 16px;">Student Distinctions & Academic Outcomes</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          ${statsHtml}
+        </div>
+      </div>
+      <div id="curriculum" style="margin:36px 0;">
+        <h2 style="margin-bottom:16px;">Grade Curriculum & Batch Schedule</h2>
+        ${batchCards}
+      </div>
+      <div id="demo-class" class="card" style="border:1px solid #38bdf8; background:#0f172a; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#38bdf8;">📝 Book a Free Diagnostic Demo Class</h2>
+        <p style="color:#94a3b8;">Attend one full concept lecture + receive a free diagnostic performance assessment with our senior faculty.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Student Name" style="padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Parent / Student Mobile" style="padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px;" />
+          <select style="padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px;">
+            <option>Class 9 - 10 Foundation</option>
+            <option>Class 11 - 12 Board Prep</option>
+            <option>Target JEE / NEET Wing</option>
+          </select>
+          <input type="text" placeholder="Target Subject Focus" style="padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px;" />
+        </div>
+        <button type="button" class="btn" style="background:#0284c7; margin-top:16px; width:100%;" onclick="alert('✓ Demo seat reserved! Admissions desk will SMS the class entry pass.')">Claim Free Demo Seat &rarr;</button>
+      </div>`;
+    } else if (industry === "local_service") {
+      const rateCards = (archetypeConfig.rateCard || []).map((item) => `
+        <div class="card" style="border-left:4px solid #ef4444; background:#181112; margin:12px 0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <h3 style="margin:0;">${escapeHtml(item.name)}</h3>
+            <strong style="color:#ef4444; font-size:1.1rem;">${escapeHtml(item.price)}</strong>
+          </div>
+          <small style="color:#94a3b8; display:block; margin:2px 0 6px;">⏱️ ${escapeHtml(item.duration)} &bull; 🛡️ ${escapeHtml(item.warranty)}</small>
+          <p style="color:#94a3b8; font-size:0.85rem; margin:0 0 8px;">${escapeHtml(item.desc)}</p>
+          <a href="#dispatch-form" style="color:#ef4444; font-size:0.85rem; font-weight:700; text-decoration:none;">Request This Job &rarr;</a>
+        </div>
+      `).join("");
+
+      industryHtml = `
+      <div id="emergency-ribbon" class="card" style="border:1px solid #ef4444; background:rgba(239,68,68,0.1); margin:24px 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <span style="color:#ef4444; font-weight:800; text-transform:uppercase;">🚨 24/7 Rapid Dispatch Active</span>
+          <p style="margin:4px 0 0; color:#94a3b8; font-size:0.9rem;">Technicians on standby in ${escapeHtml(location)}. Average 38-minute arrival.</p>
+        </div>
+        <a href="${contact ? `tel:${contact.replace(/[^0-9+]/g, '')}` : '#dispatch-form'}" class="btn" style="background:#ef4444;">📞 Call Dispatch Now</a>
+      </div>
+      <div id="pricing-guide" style="margin:36px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#ef4444; text-transform:uppercase;">🛠️ Transparent Diagnostics</span>
+        <h2 style="margin:6px 0 16px;">Fixed Upfront Rate Card & Pricing</h2>
+        ${rateCards}
+      </div>
+      <div id="dispatch-form" class="card" style="border:1px solid #ef4444; background:#181112; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#ef4444;">🚨 Request Emergency Technician Dispatch</h2>
+        <p style="color:#94a3b8;">Licensed & police-verified technician dispatched to your location with diagnostic equipment.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Service Required (e.g. AC / Plumbing)" style="padding:10px; background:#241618; border:1px solid #482327; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Mobile Number" style="padding:10px; background:#241618; border:1px solid #482327; color:#fff; border-radius:6px;" />
+          <input type="text" placeholder="Complete Street Address" style="padding:10px; background:#241618; border:1px solid #482327; color:#fff; border-radius:6px;" />
+          <select style="padding:10px; background:#241618; border:1px solid #482327; color:#fff; border-radius:6px;">
+            <option>Immediate Dispatch (Within 45 Mins)</option>
+            <option>Scheduled Today Afternoon</option>
+            <option>Scheduled Tomorrow Morning</option>
+          </select>
+        </div>
+        <button type="button" class="btn" style="background:#ef4444; margin-top:16px; width:100%;" onclick="alert('✓ Technician dispatched! Team ETA is 35-45 minutes.')">Dispatch Technician Now &rarr;</button>
+      </div>`;
+    } else if (industry === "consultant") {
+      const pillarCards = (archetypeConfig.practiceAreas || []).map((p, idx) => `
+        <div class="card" style="border-left:4px solid #d97706; background:#131822; margin:12px 0;">
+          <span style="font-size:0.75rem; color:#fbbf24; text-transform:uppercase; font-weight:700;">Mandate 0${idx + 1}</span>
+          <h3 style="margin:4px 0 6px;">${escapeHtml(p.name)}</h3>
+          <p style="color:#94a3b8; font-size:0.85rem; margin:0 0 8px;">${escapeHtml(p.deliverables)}</p>
+          <small style="color:#fbbf24;">Standard: ${escapeHtml(p.cadence)}</small>
+        </div>
+      `).join("");
+
+      const casesHtml = (archetypeConfig.caseStudies || []).map((c) => `
+        <div class="card" style="background:#131822; padding:18px;">
+          <strong style="color:#10b981; font-size:1.3rem; display:block; margin-bottom:4px;">${escapeHtml(c.metric)}</strong>
+          <small style="color:#fbbf24; display:block; font-weight:700;">${escapeHtml(c.client)}</small>
+          <p style="color:#94a3b8; font-size:0.85rem; margin:6px 0 0;">${escapeHtml(c.detail)}</p>
+        </div>
+      `).join("");
+
+      industryHtml = `
+      <div id="fiduciary-oath" class="card" style="border-left:4px solid #d97706; background:#0e141e; margin:28px 0;">
+        <span style="font-size:0.85rem; font-weight:700; color:#fbbf24; text-transform:uppercase;">⚖️ Sworn Fiduciary Standard</span>
+        <h2 style="margin:6px 0;">Fiduciary Duty of Absolute Loyalty & Care</h2>
+        <p style="color:#94a3b8;">Unconditional commitment to client best interest. Zero kickbacks, zero product sales quotas, and transparent mandate billing.</p>
+      </div>
+      <div id="practice-areas" style="margin:36px 0;">
+        <h2 style="margin-bottom:16px;">Strategic Practice Pillars & Mandates</h2>
+        ${pillarCards}
+      </div>
+      <div id="case-studies" style="margin:36px 0;">
+        <h2 style="margin-bottom:16px;">Anonymized Case Track Record</h2>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+          ${casesHtml}
+        </div>
+      </div>
+      <div id="discovery-call" class="card" style="border:1px solid #d97706; background:#0e141e; padding:28px; margin:36px 0;">
+        <h2 style="margin-top:0; color:#fbbf24;">💼 Schedule a Confidential 15-Minute Discovery Call</h2>
+        <p style="color:#94a3b8;">High-level mandate assessment conducted strictly under mutual non-disclosure.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:16px;">
+          <input type="text" placeholder="Executive Name & Title" style="padding:10px; background:#18202d; border:1px solid #28374d; color:#fff; border-radius:6px;" />
+          <input type="email" placeholder="Corporate / Private Email" style="padding:10px; background:#18202d; border:1px solid #28374d; color:#fff; border-radius:6px;" />
+          <input type="tel" placeholder="Direct Phone / WhatsApp" style="padding:10px; background:#18202d; border:1px solid #28374d; color:#fff; border-radius:6px;" />
+          <select style="padding:10px; background:#18202d; border:1px solid #28374d; color:#fff; border-radius:6px;">
+            <option>Wealth & Family Office Governance</option>
+            <option>Corporate Tax & Structuring</option>
+            <option>Fiduciary Risk & Succession</option>
+            <option>Valuation & Growth Advisory</option>
+          </select>
+        </div>
+        <button type="button" class="btn" style="background:#d97706; margin-top:16px; width:100%;" onclick="alert('✓ Discovery call request logged! Calendar invite sent under NDA.')">Request Confidential Mandate Review &rarr;</button>
       </div>`;
     }
 
@@ -1309,8 +1530,12 @@ Built with MakeSite AI Engine.
                   services,
                   features,
                   faqs,
+                  industry,
+                  archetypeConfig,
+                  confirmedFields: confirmedSet,
                   onContactClick: handleContactClick,
                   onNavigateToSection: handleScrollToTarget,
+                  onShowToast: showToast,
                   isEditing,
                   onUpdateDataField: handleUpdateDataField,
                   onUpdateContentField: handleUpdateContentField,
@@ -1356,9 +1581,11 @@ Built with MakeSite AI Engine.
                     features,
                     faqs,
                     industry,
+                    archetypeConfig,
                     confirmedFields: confirmedSet,
                     onContactClick: handleContactClick,
                     onNavigateToSection: handleScrollToTarget,
+                    onShowToast: showToast,
                     isEditing,
                     onUpdateDataField: handleUpdateDataField,
                     onUpdateContentField: handleUpdateContentField,
@@ -1443,15 +1670,28 @@ function renderTemplateSkin(props) {
           </div>
           <div className="tpl-nav-links">
             <a href="#about" onClick={(e) => onNavigateToSection ? onNavigateToSection("about", e) : onContactClick(e)}>About</a>
-            <a href="#industry-module" onClick={(e) => onNavigateToSection ? onNavigateToSection("industry-module", e) : onContactClick(e)}>
-              {industry === "cafe" ? "Artisan Menu" : industry === "salon" ? "Rituals" : industry === "finance" ? "Governance" : industry === "retail" ? "Showcase" : "Specialty"}
-            </a>
-            <a href="#services" onClick={(e) => onNavigateToSection ? onNavigateToSection("services", e) : onContactClick(e)}>Services</a>
-            {features && features.length > 0 && (
-              <a href="#features" onClick={(e) => onNavigateToSection ? onNavigateToSection("features", e) : onContactClick(e)}>Features</a>
+            {archetypeConfig?.navLinks ? (
+              archetypeConfig.navLinks.map((nav, nIdx) => (
+                <a
+                  key={nIdx}
+                  href={`#${nav.target}`}
+                  className={nav.isCta ? "tpl-nav-cta" : ""}
+                  onClick={(e) => {
+                    if (nav.target?.startsWith("tel:")) return;
+                    if (onNavigateToSection) onNavigateToSection(nav.target, e);
+                    else onContactClick(e);
+                  }}
+                >
+                  {nav.label} {nav.isCta ? "↓" : ""}
+                </a>
+              ))
+            ) : (
+              <>
+                <a href="#services" onClick={(e) => onNavigateToSection ? onNavigateToSection("services", e) : onContactClick(e)}>Services</a>
+                <a href="#contact" className="tpl-nav-cta" onClick={onContactClick}>Contact &darr;</a>
+              </>
             )}
             <a href="#verified-manifest" className="tpl-nav-trust-link" onClick={(e) => onNavigateToSection ? onNavigateToSection("verified-manifest", e) : onContactClick(e)}>✓ Trust Audit</a>
-            <a href="#contact" className="tpl-nav-cta" onClick={onContactClick}>Contact &darr;</a>
           </div>
         </div>
       </nav>
@@ -1463,14 +1703,18 @@ function renderTemplateSkin(props) {
             className={`tpl-eyebrow-pill ${isEditing ? "editable-inline-block" : ""}`}
             onClick={isEditing ? () => onFocusField("contact", "edit-location") : undefined}
           >
-            <span className="eyebrow-dot"></span> Verified Profile &bull;{" "}
-            <span
-              contentEditable={isEditing}
-              suppressContentEditableWarning={true}
-              onBlur={(e) => onUpdateDataField("location", e.currentTarget.innerText.trim())}
-            >
-              {location}
-            </span>
+            <span className="eyebrow-dot"></span> {archetypeConfig?.badge || (
+              <>
+                Verified Profile &bull;{" "}
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  onBlur={(e) => onUpdateDataField("location", e.currentTarget.innerText.trim())}
+                >
+                  {location}
+                </span>
+              </>
+            )}
             {isEditing && <span className="inline-pen-badge">✎</span>}
           </div>
 
@@ -1513,20 +1757,61 @@ function renderTemplateSkin(props) {
             >
               <button
                 className="tpl-btn-primary"
-                onClick={!isEditing ? onContactClick : undefined}
+                onClick={!isEditing ? (e) => {
+                  const target = archetypeConfig?.heroCtaTarget || "contact";
+                  if (target.startsWith("tel:")) {
+                    window.location.href = target;
+                  } else {
+                    onNavigateToSection ? onNavigateToSection(target, e) : onContactClick(e);
+                  }
+                } : undefined}
                 contentEditable={isEditing}
                 suppressContentEditableWarning={true}
                 onBlur={(e) => onUpdateContentField("cta", e.currentTarget.innerText.trim())}
               >
-                {cta} &darr;
+                {archetypeConfig?.heroCta || cta} &darr;
               </button>
               {isEditing && <span className="inline-pen-badge">✎</span>}
             </div>
 
-            <button className="tpl-btn-secondary" onClick={onContactClick}>
-              📍 View Details &bull; {location}
+            <button
+              className="tpl-btn-secondary"
+              onClick={(e) => {
+                const target = archetypeConfig?.heroSecondaryTarget || "contact";
+                if (target.startsWith("tel:")) {
+                  window.location.href = target;
+                } else {
+                  onNavigateToSection ? onNavigateToSection(target, e) : onContactClick(e);
+                }
+              }}
+            >
+              {archetypeConfig?.heroSecondaryCta || `📍 View Details • ${location}`}
             </button>
           </div>
+
+          {archetypeConfig?.highlights && archetypeConfig.highlights.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px", marginTop: "18px" }}>
+              {archetypeConfig.highlights.map((hl, hIdx) => (
+                <span
+                  key={hIdx}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    borderRadius: "999px",
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    color: "var(--text-1)"
+                  }}
+                >
+                  <span>{hl.icon}</span>
+                  <span>{hl.text}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Quick Business Ribbon */}
           <div className="tpl-info-ribbon">
@@ -1617,234 +1902,901 @@ function renderTemplateSkin(props) {
         </div>
       </section>
 
-      {/* Industry-Specific Signature Module */}
-      <section className={`tpl-section tpl-industry-section tpl-industry-${industry}`} id="industry-module">
-        <div className="tpl-container">
-          {industry === "cafe" && (
-            <div className="industry-box cafe-box">
+      {/* =========================================================================
+          GENUINELY DISTINCT INDUSTRY ARCHETYPE SECTIONS
+      ========================================================================= */}
+
+      {/* 1. SALON & SPA ARCHETYPE */}
+      {industry === "salon" && (
+        <section className="tpl-section archetype-section tpl-industry-salon" id="treatment-menu">
+          <div className="tpl-container">
+            <div className="tpl-section-header">
+              <span className="tpl-section-badge">🌿 Sanctuary Rituals & Aesthetic Care</span>
+              <h2>Treatment Menu & Holistic Care</h2>
+              <p>Unhurried botanical sessions designed to calm the nervous system, revive skin radiance, and restore natural balance.</p>
+            </div>
+
+            {/* Treatment Cards Grid */}
+            <div className="tpl-services-grid" style={{ marginBottom: "50px" }}>
+              {(archetypeConfig?.treatmentMenu || []).map((t, idx) => (
+                <div key={idx} className="archetype-card">
+                  <div className="card-meta-row">
+                    <span className="badge-pill">⏱️ {t.duration}</span>
+                    <span className="badge-pill price-pill">{t.price}</span>
+                  </div>
+                  <h3>{t.name}</h3>
+                  <p>{t.description}</p>
+                  <div className="card-action-bar">
+                    <span className="card-subnote">Includes Aromatherapy Scalp Release</span>
+                    <button
+                      type="button"
+                      className="btn-archetype-sm"
+                      onClick={(e) => onNavigateToSection ? onNavigateToSection("book-appointment", e) : onContactClick(e)}
+                    >
+                      Book This Slot &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Master Stylists Roster */}
+            <div id="stylists" style={{ margin: "60px 0" }}>
               <div className="tpl-section-header">
-                <span className="tpl-section-badge">☕ Artisan Roastery & Daily Bakes</span>
-                <h2>Signature Tasting Board & Counter Roster</h2>
-                <p>Small-batch roasted beans with origin transparency, paired with slow-fermented viennoiserie.</p>
+                <span className="tpl-section-badge">Master Artisans</span>
+                <h2>Meet Our Creative Stylists & Therapists</h2>
+                <p>Decades of collective technique dedicated to unhurried, attentive personal transformation.</p>
               </div>
-
-              {/* Fresh Bakes Schedule Ticker */}
-              <div className="cafe-schedule-ribbon">
-                <div className="cafe-ticker-item">
-                  <span className="ticker-icon">🥐</span>
-                  <div>
-                    <strong>Morning Pull: 07:30 AM</strong>
-                    <span>Warm Butter Croissants & Almond Danishes</span>
-                  </div>
-                </div>
-                <div className="cafe-ticker-item">
-                  <span className="ticker-icon">☕</span>
-                  <div>
-                    <strong>Single-Origin Espresso: All Day</strong>
-                    <span>Washed Ethiopian Yirgacheffe & Colombian Geisha</span>
-                  </div>
-                </div>
-                <div className="cafe-ticker-item">
-                  <span className="ticker-icon">🥖</span>
-                  <div>
-                    <strong>Sourdough Hearth: 11:00 AM</strong>
-                    <span>Fresh Country Loaves & Focaccia Rounds</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Menu Board Grid */}
-              <div className="cafe-menu-grid">
-                {services.map((item, i) => (
-                  <div key={i} className="cafe-menu-card">
-                    <div className="cafe-card-top">
-                      <h3 className="cafe-item-name">{item.name}</h3>
-                      <span className="cafe-badge">{i % 2 === 0 ? "🌱 Organic Reserve" : "☕ Barista Selected"}</span>
-                    </div>
-                    <p className="cafe-item-desc">{item.description}</p>
-                    <div className="cafe-card-meta">
-                      <span className="cafe-flavor-note">
-                        {i === 0 ? "Notes: Bergamot, Wild Honey, Jasmine" : i === 1 ? "Crisp Flaky Shell • 72-Hour Lamination" : "Fresh Batch Brewed Daily"}
-                      </span>
-                      <span className="cafe-price-tag">Artisan Crafted</span>
-                    </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
+                {(archetypeConfig?.stylists || []).map((s, idx) => (
+                  <div key={idx} className="team-card">
+                    <div className="team-avatar">✂️</div>
+                    <strong style={{ fontSize: "1.05rem" }}>{s.name}</strong>
+                    <span className="team-role">{s.role} &bull; {s.exp}</span>
+                    <span style={{ fontSize: "12px", color: "#10b981", fontWeight: "600" }}>{s.spec}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
 
-          {industry === "salon" && (
-            <div className="industry-box salon-box">
+            {/* Hygiene & Sanctuary Standards */}
+            <div id="hygiene" style={{ margin: "60px 0" }}>
               <div className="tpl-section-header">
-                <span className="tpl-section-badge">🌿 Sanctuary Rituals & Aesthetic Care</span>
-                <h2>Treatment Rituals & Holistic Menu</h2>
-                <p>Unhurried botanical sessions designed to calm the nervous system, revive skin radiance, and nurture wellbeing.</p>
+                <span className="tpl-section-badge">Sanctuary Standards</span>
+                <h2>Clean Formulations & Clinical Hygiene</h2>
               </div>
-
-              {/* Sanctuary Guarantee */}
-              <div className="salon-sanctuary-bar">
-                <div className="sanctuary-badge">
-                  <span className="sanctuary-icon">✨</span>
-                  <span>Private Sound-Dampened Suites</span>
-                </div>
-                <div className="sanctuary-badge">
-                  <span className="sanctuary-icon">🌿</span>
-                  <span>100% Non-Toxic & Vegan Formulations</span>
-                </div>
-                <div className="sanctuary-badge">
-                  <span className="sanctuary-icon">⏱️</span>
-                  <span>Unhurried 1-on-1 Dedicated Specialist Time</span>
-                </div>
-              </div>
-
-              {/* Rituals Grid */}
-              <div className="salon-rituals-grid">
-                {services.map((ritual, i) => {
-                  const durations = ["45 Min Express Care", "60 Min Signature Ritual", "90 Min Deep Restoration"];
-                  return (
-                    <div key={i} className="salon-ritual-card">
-                      <div className="salon-card-badge-row">
-                        <span className="duration-pill">⏱️ {durations[i % durations.length]}</span>
-                        <span className="purity-pill">Botanical Reserve</span>
-                      </div>
-                      <h3 className="salon-ritual-title">{ritual.name}</h3>
-                      <p className="salon-ritual-desc">{ritual.description}</p>
-                      <div className="salon-card-footer">
-                        <span className="ritual-sensory">Includes Aromatherapy Scalp & Tension Release</span>
-                        <button type="button" className="salon-inquire-link" onClick={onContactClick}>Inquire Availability &rarr;</button>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+                {(archetypeConfig?.hygieneGuarantees || []).map((h, idx) => (
+                  <div key={idx} className="story-card" style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: "24px", marginBottom: "8px" }}>{h.icon}</div>
+                    <strong style={{ display: "block", marginBottom: "6px" }}>{h.title}</strong>
+                    <p style={{ fontSize: "12.5px", opacity: 0.8, margin: 0 }}>{h.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {industry === "finance" && (
-            <div className="industry-box finance-box">
-              <div className="tpl-section-header">
-                <span className="tpl-section-badge">⚖️ Fiduciary Oath & Strategic Governance</span>
-                <h2>Fiduciary Standards & Capital Advisory</h2>
-                <p>Independent capital stewardship unburdened by institutional conflicts of interest. Strict legal duty of care dedicated exclusively to your financial wellbeing.</p>
+            {/* Appointment Booking Form Widget */}
+            <div className="archetype-booking-panel" id="book-appointment">
+              <div className="booking-inner">
+                <span className="tpl-section-badge">Online Concierge</span>
+                <h2>Reserve Your Sanctuary Session</h2>
+                <p>Select your ritual, preferred specialist, and ideal time slot. Immediate confirmation.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Treatment slot reserved! Concierge will confirm via SMS.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Treatment Ritual</label>
+                      <select defaultValue={archetypeConfig?.treatmentMenu?.[0]?.name || "Signature Hair Spa"}>
+                        {(archetypeConfig?.treatmentMenu || []).map((t, idx) => (
+                          <option key={idx} value={t.name}>{t.name} ({t.duration} &bull; {t.price})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Specialist</label>
+                      <select defaultValue="Any Available Senior Specialist">
+                        <option value="any">First Available Senior Specialist</option>
+                        {(archetypeConfig?.stylists || []).map((s, idx) => (
+                          <option key={idx} value={s.name}>{s.name} ({s.role})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Your Full Name</label>
+                      <input type="text" placeholder="e.g. Maya Iyer" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Phone / WhatsApp Number</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Date</label>
+                      <input type="date" defaultValue={new Date().toISOString().split("T")[0]} required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Time Slot</label>
+                      <select defaultValue="11:00 AM">
+                        <option>10:00 AM - Morning Calm</option>
+                        <option>11:30 AM - Midday Session</option>
+                        <option>02:00 PM - Afternoon Glow</option>
+                        <option>04:30 PM - Twilight Care</option>
+                        <option>06:30 PM - Evening Reset</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block">
+                    Confirm Appointment Slot &rarr;
+                  </button>
+                  <p className="form-subtext">✨ No pre-payment required. Dedicated suite prepared prior to your arrival.</p>
+                </form>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
 
-              {/* Fiduciary Oath Banner */}
-              <div className="finance-oath-card">
-                <div className="oath-icon-badge">🛡️</div>
-                <div className="oath-body">
-                  <h4>The Fiduciary Oath of Loyalty & Care</h4>
-                  <p>
-                    Every advisory mandate is bound by the fiduciary standard: transparent fees, zero undisclosed kickbacks, and custom-tailored capital preservation architectures.
+      {/* 2. CAFÉ & BISTRO ARCHETYPE */}
+      {industry === "cafe" && (
+        <section className="tpl-section archetype-section tpl-industry-cafe" id="cafe-menu">
+          <div className="tpl-container">
+            {/* Roast Spotlight */}
+            <div className="roast-spotlight-box" id="roast-spotlight">
+              <span className="tpl-section-badge">☕ Single-Origin Roast Spotlight</span>
+              <h2>{archetypeConfig?.roastSpotlight?.bean || "Washed Ethiopian Yirgacheffe"}</h2>
+              <p style={{ maxWidth: "600px", margin: "10px auto 0", fontSize: "14px" }}>
+                <strong>Tasting Profile:</strong> {archetypeConfig?.roastSpotlight?.notes} &bull; <strong>Elevation:</strong> {archetypeConfig?.roastSpotlight?.altitude}
+              </p>
+              <div className="roast-schedule-chips">
+                <span className="badge-pill">📅 {archetypeConfig?.roastSpotlight?.roastDate}</span>
+                <span className="badge-pill">☕ Dialed Daily at 07:00 AM</span>
+                <span className="badge-pill">🌱 Direct Ethical Farm Gate</span>
+              </div>
+            </div>
+
+            {/* Categorized Food & Beverage Menu */}
+            <div className="tpl-section-header" style={{ marginTop: "60px" }}>
+              <span className="tpl-section-badge">Daily Hearth & Barista Bar</span>
+              <h2>Signature Food & Drinks Menu</h2>
+              <p>House-roasted beans paired with slow-fermented viennoiserie and kitchen artisan boards.</p>
+            </div>
+
+            <div className="menu-board-container">
+              {(archetypeConfig?.menuCategories || []).map((cat, cIdx) => (
+                <div key={cIdx} style={{ marginBottom: "32px" }}>
+                  <h3 style={{ fontSize: "1.2rem", color: "#e5a93b", borderBottom: "1px solid rgba(229,169,59,0.3)", paddingBottom: "8px", marginBottom: "14px" }}>
+                    {cat.name}
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {cat.items.map((item, iIdx) => (
+                      <div key={iIdx} className="menu-item-row">
+                        <div className="menu-item-left">
+                          <div className="menu-item-header">
+                            <strong style={{ fontSize: "1rem" }}>{item.name}</strong>
+                            <span className="dietary-tag">{item.tag}</span>
+                          </div>
+                          <p style={{ fontSize: "12.5px", opacity: 0.8, margin: 0 }}>{item.desc}</p>
+                        </div>
+                        <div className="menu-item-price" style={{ color: "#e5a93b" }}>{item.price}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Directions & Transit Guide */}
+            <div className="directions-section" id="directions">
+              <div className="directions-card">
+                <span className="tpl-section-badge">How To Find Us</span>
+                <h2>Directions, Transit & Parking</h2>
+                <div className="address-callout">📍 <strong>{location}</strong></div>
+                <div className="transit-tips">
+                  <p>🚆 <strong>Public Transit:</strong> {archetypeConfig?.directionsGuide?.transit}</p>
+                  <p>🕒 <strong>Dine-In Hours:</strong> {archetypeConfig?.directionsGuide?.dineInHours}</p>
+                  <p>🥡 <strong>Takeaway:</strong> {archetypeConfig?.directionsGuide?.takeaway}</p>
+                </div>
+                <div className="directions-actions">
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(location + ' ' + businessName)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary-block"
+                  >
+                    🗺️ Open in Google Maps & Get Directions &rarr;
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Table Reservation & Pre-Order Widget */}
+            <div className="archetype-booking-panel" id="table-reservation">
+              <div className="booking-inner">
+                <span className="tpl-section-badge">Reservations</span>
+                <h2>Reserve a Table or Pre-Order For Pickup</h2>
+                <p>Skip the queue during morning peak hours or reserve your favorite patio seating.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Table reserved! See you soon at the café.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Party Size / Request Type</label>
+                      <select defaultValue="Table for 2 Guests">
+                        <option>Table for 1 Guest (Solo Study / Laptop)</option>
+                        <option>Table for 2 Guests (Café Seating)</option>
+                        <option>Table for 4 Guests (Brunch Booth)</option>
+                        <option>Table for 6+ Guests (Community Hearth)</option>
+                        <option>Takeaway Pre-Order (Fast Barista Counter Pickup)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Seating Preference</label>
+                      <select defaultValue="Indoor Air-Conditioned Bar">
+                        <option>Indoor Air-Conditioned Bar</option>
+                        <option>Sunny Outdoor Garden Patio</option>
+                        <option>Quiet Corner (Wi-Fi Work Desk)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Your Name</label>
+                      <input type="text" placeholder="e.g. Rohan Sen" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Mobile Number</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Date</label>
+                      <input type="date" defaultValue={new Date().toISOString().split("T")[0]} required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Arrival Time</label>
+                      <select defaultValue="09:00 AM">
+                        <option>08:00 AM (Early Roast & Croissant)</option>
+                        <option>09:30 AM (Morning Brew)</option>
+                        <option>12:30 PM (Panini Lunch)</option>
+                        <option>04:00 PM (Afternoon Filter & Pastry)</option>
+                        <option>06:30 PM (Evening Sunset Pour)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block">
+                    Confirm Reservation / Pickup Order &rarr;
+                  </button>
+                  <p className="form-subtext">☕ Your table is held for 15 minutes past reservation time.</p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 3. BOUTIQUE & FASHION ARCHETYPE */}
+      {industry === "boutique" && (
+        <section className="tpl-section archetype-section tpl-industry-boutique" id="lookbook">
+          <div className="tpl-container">
+            <div className="tpl-section-header">
+              <span className="tpl-section-badge">✨ Curated Seasonal Atelier</span>
+              <h2>The Signature Collection & Lookbook</h2>
+              <p>Meticulously hand-loomed textiles, pure natural fabrics, and silhouette-perfect tailoring.</p>
+            </div>
+
+            {/* Lookbook Grid */}
+            <div className="tpl-services-grid" style={{ marginBottom: "50px" }}>
+              {(archetypeConfig?.lookbookItems || []).map((item, idx) => (
+                <div key={idx} className="archetype-card" style={{ borderColor: "rgba(192, 132, 252, 0.25)" }}>
+                  <div className="card-meta-row">
+                    <span className="badge-pill" style={{ color: "#c084fc", background: "rgba(192, 132, 252, 0.15)" }}>{item.tag}</span>
+                    <span className="badge-pill price-pill" style={{ color: "#c084fc" }}>{item.price}</span>
+                  </div>
+                  <h3>{item.name}</h3>
+                  <span className="fabric-spec">🧵 {item.fabric}</span>
+                  <p>{item.desc}</p>
+                  <div className="card-action-bar">
+                    <span className="card-subnote">Includes Master Alterations</span>
+                    <button
+                      type="button"
+                      className="btn-archetype-sm"
+                      style={{ color: "#c084fc" }}
+                      onClick={(e) => onNavigateToSection ? onNavigateToSection("fitting", e) : onContactClick(e)}
+                    >
+                      Reserve for Fitting &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Atelier Craft Story */}
+            <div id="craft" style={{ margin: "60px 0" }}>
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">Heritage Provenance</span>
+                <h2>Atelier Craft & Tailoring Standards</h2>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+                {(archetypeConfig?.craftPillars || []).map((c, idx) => (
+                  <div key={idx} className="story-card" style={{ textAlign: "left", borderColor: "rgba(192, 132, 252, 0.15)" }}>
+                    <strong style={{ fontSize: "1.1rem", display: "block", marginBottom: "8px", color: "#c084fc" }}>{c.title}</strong>
+                    <p style={{ fontSize: "13px", opacity: 0.8, margin: 0 }}>{c.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Private Fitting Scheduler */}
+            <div className="archetype-booking-panel" id="fitting" style={{ borderColor: "rgba(192, 132, 252, 0.3)" }}>
+              <div className="booking-inner">
+                <span className="tpl-section-badge">VIP In-Store Experience</span>
+                <h2>Book a Private In-Store Fitting Suite</h2>
+                <p>Enjoy private styling consultation and master tailor alterations in our lounge suite.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Fitting suite reserved! Stylist will have selections ready.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Occasion / Wardrobe Need</label>
+                      <select defaultValue="Festive & Celebration Wear">
+                        <option>Festive & Celebration Wear</option>
+                        <option>Curated Everyday Silk & Linen</option>
+                        <option>Bridal / Trousseau Consultation</option>
+                        <option>Bespoke Custom Tailoring</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Approximate Size Preference</label>
+                      <select defaultValue="Medium (M)">
+                        <option>XS / S</option>
+                        <option>Medium (M)</option>
+                        <option>Large (L)</option>
+                        <option>XL / Custom Tailored Measures</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Your Full Name</label>
+                      <input type="text" placeholder="e.g. Ananya Singhania" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Mobile Number / WhatsApp</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Date</label>
+                      <input type="date" defaultValue={new Date().toISOString().split("T")[0]} required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Time Slot</label>
+                      <select defaultValue="03:00 PM">
+                        <option>11:30 AM (Quiet Morning Lounge)</option>
+                        <option>03:00 PM (Afternoon Styling Session)</option>
+                        <option>05:30 PM (Evening Private Suite)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block" style={{ background: "#a855f7" }}>
+                    Reserve Private Fitting Suite &rarr;
+                  </button>
+                  <p className="form-subtext">✨ Complimentary alteration consultation with our in-house master tailor included.</p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 4. TUITION & COACHING ARCHETYPE */}
+      {industry === "tuition" && (
+        <section className="tpl-section archetype-section tpl-industry-tuition" id="curriculum">
+          <div className="tpl-container">
+            {/* Academic Results Counters */}
+            <div className="results-stats-section" id="results">
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">🎓 Proven Academic Track Record</span>
+                <h2>Student Distinctions & Competitive Results</h2>
+                <p>Consistent board exam excellence and premier entrance rank conversions year after year.</p>
+              </div>
+              <div className="results-grid">
+                {(archetypeConfig?.resultsCounters || []).map((res, idx) => (
+                  <div key={idx} className="stat-card">
+                    <span className="stat-num" style={{ color: "#38bdf8" }}>{res.number}</span>
+                    <span className="stat-lbl">{res.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Curriculum & Batch Schedules */}
+            <div className="tpl-section-header" style={{ marginTop: "60px" }}>
+              <span className="tpl-section-badge">Curriculum Matrix</span>
+              <h2>Batches, Timings & Syllabus Structure</h2>
+              <p>Strictly capped batches of 15 students to guarantee individual attention and continuous doubt resolution.</p>
+            </div>
+
+            <div className="tpl-services-grid" style={{ marginBottom: "50px" }}>
+              {(archetypeConfig?.curriculumBatches || []).map((batch, idx) => (
+                <div key={idx} className="archetype-card" style={{ borderColor: "rgba(56, 189, 248, 0.25)" }}>
+                  <div className="card-meta-row">
+                    <span className="badge-pill" style={{ color: "#38bdf8", background: "rgba(56, 189, 248, 0.15)" }}>{batch.badge}</span>
+                    <span className="badge-pill" style={{ color: "#fbbf24" }}>Max 15 Seats</span>
+                  </div>
+                  <h3>{batch.grade}</h3>
+                  <span className="batch-time">🕒 {batch.schedule}</span>
+                  <p style={{ fontWeight: "600", color: "#38bdf8", margin: "6px 0" }}>📖 {batch.subjects}</p>
+                  <p>{batch.features}</p>
+                  <div className="card-action-bar">
+                    <span className="card-subnote">Includes Weekly Mocks</span>
+                    <button
+                      type="button"
+                      className="btn-archetype-sm"
+                      style={{ color: "#38bdf8" }}
+                      onClick={(e) => onNavigateToSection ? onNavigateToSection("demo-class", e) : onContactClick(e)}
+                    >
+                      Enroll in Demo &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Senior Faculty Mentors */}
+            <div id="faculty" style={{ margin: "60px 0" }}>
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">Master Educators</span>
+                <h2>Meet Our Senior Subject Mentors</h2>
+                <p>Alumni of top institutions with proven pedagogy that simplifies complex numericals.</p>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "18px" }}>
+                {(archetypeConfig?.faculty || []).map((fac, idx) => (
+                  <div key={idx} className="team-card" style={{ textAlign: "left" }}>
+                    <div className="team-avatar">👨‍🏫</div>
+                    <strong style={{ fontSize: "1.1rem", display: "block" }}>{fac.name}</strong>
+                    <span className="team-role" style={{ color: "#38bdf8" }}>{fac.role}</span>
+                    <p style={{ fontSize: "12px", opacity: 0.85, margin: "6px 0" }}>🎓 {fac.cred}</p>
+                    <p style={{ fontSize: "12px", opacity: 0.7, margin: 0 }}>{fac.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Free Demo Class Enrollment Widget */}
+            <div className="archetype-booking-panel" id="demo-class" style={{ borderColor: "rgba(56, 189, 248, 0.3)" }}>
+              <div className="booking-inner">
+                <span className="tpl-section-badge">Zero Cost Assessment</span>
+                <h2>Book a Free Diagnostic Demo Lecture</h2>
+                <p>Experience one complete conceptual lecture and receive a diagnostic score report.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Demo seat reserved! Admissions desk will SMS the class entry pass.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Target Academic Program</label>
+                      <select defaultValue="Class 9 - 10 Foundation">
+                        <option>Class 9 - 10 Foundation Batch</option>
+                        <option>Class 11 - 12 Board & Entrance Prep</option>
+                        <option>Target JEE / NEET Competitive Wing</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Target Subject Focus</label>
+                      <select defaultValue="Mathematics & Numerical Problem Solving">
+                        <option>Mathematics & Numerical Problem Solving</option>
+                        <option>Physics & Visual Mechanics</option>
+                        <option>Chemistry & Reaction Mechanisms</option>
+                        <option>All-Subject Diagnostic Pass</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Student's Full Name</label>
+                      <input type="text" placeholder="e.g. Aarav Sharma" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Parent / Student Mobile</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Current School Name</label>
+                      <input type="text" placeholder="e.g. St. Xavier's High School" />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Demo Day</label>
+                      <select defaultValue="This Coming Saturday (04:30 PM)">
+                        <option>This Coming Saturday (04:30 PM)</option>
+                        <option>This Coming Sunday (10:00 AM)</option>
+                        <option>Next Weekday Evening Batch</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block" style={{ background: "#0284c7" }}>
+                    Claim Free Demo Seat & Diagnostic Pass &rarr;
+                  </button>
+                  <p className="form-subtext">🎓 Strictly 15 students per batch. Entry pass sent instantly via SMS.</p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 5. LOCAL SERVICES & TRADES ARCHETYPE */}
+      {industry === "local_service" && (
+        <section className="tpl-section archetype-section tpl-industry-local" id="pricing-guide">
+          <div className="tpl-container">
+            {/* 24/7 Rapid Emergency Response Ribbon */}
+            <div className="emergency-alert-banner" id="emergency-ribbon">
+              <div className="emergency-inner">
+                <div>
+                  <span className="emergency-dot">●</span>
+                  <strong>24/7 RAPID DISPATCH ACTIVE IN {location.toUpperCase()}</strong>
+                  <span style={{ display: "block", opacity: 0.85, marginTop: "2px" }}>
+                    Licensed technicians currently in your postal zone. Average arrival: 38 mins.
+                  </span>
+                </div>
+                <a
+                  href={contact ? `tel:${contact.replace(/[^0-9+]/g, "")}` : "#dispatch-form"}
+                  className="btn-emergency-call"
+                >
+                  📞 {contact ? `Call: ${contact}` : "Request Rapid Dispatch"}
+                </a>
+              </div>
+            </div>
+
+            {/* Fixed Upfront Rate Card */}
+            <div className="tpl-section-header" style={{ marginTop: "40px" }}>
+              <span className="tpl-section-badge">Transparent Rate Card</span>
+              <h2>Fixed Upfront Diagnostic & Repair Pricing</h2>
+              <p>Zero surprise fees. You approve the exact quote before any work starts. 90-day callback warranty included.</p>
+            </div>
+
+            <div className="tpl-services-grid" style={{ marginBottom: "50px" }}>
+              {(archetypeConfig?.rateCard || []).map((job, idx) => (
+                <div key={idx} className="archetype-card" style={{ borderColor: "rgba(239, 68, 68, 0.25)" }}>
+                  <div className="card-meta-row">
+                    <span className="badge-pill" style={{ color: "#ef4444", background: "rgba(239, 68, 68, 0.15)" }}>⏱️ {job.duration}</span>
+                    <span className="badge-pill price-pill" style={{ color: "#ef4444" }}>{job.price}</span>
+                  </div>
+                  <h3>{job.name}</h3>
+                  <span className="fabric-spec" style={{ color: "#10b981" }}>🛡️ {job.warranty}</span>
+                  <p>{job.desc}</p>
+                  <div className="card-action-bar">
+                    <span className="card-subnote">Genuine OEM Spares</span>
+                    <button
+                      type="button"
+                      className="btn-archetype-sm"
+                      style={{ color: "#ef4444" }}
+                      onClick={(e) => onNavigateToSection ? onNavigateToSection("dispatch-form", e) : onContactClick(e)}
+                    >
+                      Request This Job &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Coverage Area Guide */}
+            <div id="coverage" style={{ margin: "50px 0" }}>
+              <div className="directions-card" style={{ borderColor: "rgba(239, 68, 68, 0.2)" }}>
+                <span className="tpl-section-badge">Service Radius</span>
+                <h2>Coverage Radius & Response Standby</h2>
+                <div className="address-callout">📍 <strong>{archetypeConfig?.coverageGuide?.radius}</strong></div>
+                <div className="transit-tips">
+                  <p>⚡ <strong>Response Time:</strong> {archetypeConfig?.coverageGuide?.responseTime}</p>
+                  <p>🚨 <strong>Current Status:</strong> {archetypeConfig?.coverageGuide?.emergencyStatus}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Guarantees */}
+            <div id="guarantees" style={{ margin: "60px 0" }}>
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">Our Commitment</span>
+                <h2>The 4-Point Service Guarantee</h2>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+                {(archetypeConfig?.guarantees || []).map((g, idx) => (
+                  <div key={idx} className="story-card" style={{ textAlign: "left", borderColor: "rgba(239, 68, 68, 0.15)" }}>
+                    <div style={{ fontSize: "24px", marginBottom: "8px" }}>{g.icon}</div>
+                    <strong style={{ display: "block", marginBottom: "6px" }}>{g.title}</strong>
+                    <p style={{ fontSize: "12.5px", opacity: 0.8, margin: 0 }}>{g.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Instant Technician Dispatch Form */}
+            <div className="archetype-booking-panel" id="dispatch-form" style={{ borderColor: "rgba(239, 68, 68, 0.3)" }}>
+              <div className="booking-inner">
+                <span className="tpl-section-badge">Emergency & Scheduled</span>
+                <h2>Request Rapid Technician Dispatch</h2>
+                <p>A certified, police-verified technician will be routed directly to your address.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Technician dispatched! Team ETA within 45 minutes.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Urgency Level</label>
+                      <select defaultValue="Immediate Rapid Dispatch (Under 45 Mins)">
+                        <option>Immediate Rapid Dispatch (Under 45 Mins)</option>
+                        <option>Scheduled Today Afternoon</option>
+                        <option>Scheduled Tomorrow Morning</option>
+                        <option>Weekend General Maintenance</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Service / Repair Category</label>
+                      <select defaultValue={archetypeConfig?.rateCard?.[0]?.name || "Emergency Repair"}>
+                        {(archetypeConfig?.rateCard || []).map((r, idx) => (
+                          <option key={idx} value={r.name}>{r.name} ({r.price})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Your Name</label>
+                      <input type="text" placeholder="e.g. Vikram Joshi" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Direct Phone Number</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                      <label>Complete Street Address & Landmark</label>
+                      <input type="text" placeholder="Flat No., Building Name, Street, Landmark" required />
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block" style={{ background: "#ef4444" }}>
+                    Dispatch Certified Technician Now &rarr;
+                  </button>
+                  <p className="form-subtext">🛡️ Transparent estimate provided before any work starts. 90-day callback guarantee.</p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 6. CONSULTANTS & ADVISORY ARCHETYPE */}
+      {industry === "consultant" && (
+        <section className="tpl-section archetype-section tpl-industry-consultant" id="practice-areas">
+          <div className="tpl-container">
+            {/* Executive Fiduciary Oath Banner */}
+            <div className="roast-spotlight-box" id="fiduciary-oath" style={{ borderColor: "rgba(217, 119, 6, 0.35)", background: "rgba(217, 119, 6, 0.08)" }}>
+              <span className="tpl-section-badge">⚖️ The Fiduciary Standard of Care</span>
+              <h2>Independent Mandates & Capital Governance</h2>
+              <p style={{ maxWidth: "660px", margin: "10px auto 0", fontSize: "14px" }}>
+                Legally sworn duty of loyalty: zero undisclosed commissions, transparent hourly or fixed mandate retainers, and fiduciary architectures tailored strictly to your generational wellbeing.
+              </p>
+            </div>
+
+            {/* Practice Areas */}
+            <div className="tpl-section-header" style={{ marginTop: "60px" }}>
+              <span className="tpl-section-badge">Practice Pillars</span>
+              <h2>Strategic Advisory Disciplines</h2>
+              <p>Comprehensive solutions designed for founders, family offices, and executive leadership.</p>
+            </div>
+
+            <div className="tpl-services-grid" style={{ marginBottom: "50px" }}>
+              {(archetypeConfig?.practiceAreas || []).map((pillar, idx) => (
+                <div key={idx} className="archetype-card" style={{ borderColor: "rgba(217, 119, 6, 0.25)" }}>
+                  <div className="card-meta-row">
+                    <span className="badge-pill" style={{ color: "#fbbf24", background: "rgba(217, 119, 6, 0.15)" }}>Pillar 0{idx + 1}</span>
+                    <span className="badge-pill">{pillar.cadence}</span>
+                  </div>
+                  <h3>{pillar.name}</h3>
+                  <p>{pillar.deliverables}</p>
+                  <div className="card-action-bar">
+                    <span className="card-subnote">Confidential Mandate</span>
+                    <button
+                      type="button"
+                      className="btn-archetype-sm"
+                      style={{ color: "#fbbf24" }}
+                      onClick={(e) => onNavigateToSection ? onNavigateToSection("discovery-call", e) : onContactClick(e)}
+                    >
+                      Inquire Mandate &rarr;
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Case Studies */}
+            <div id="case-studies" style={{ margin: "60px 0" }}>
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">Verified Outcomes</span>
+                <h2>Anonymized Mandate Case Studies</h2>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "18px" }}>
+                {(archetypeConfig?.caseStudies || []).map((cs, idx) => (
+                  <div key={idx} className="story-card" style={{ textAlign: "left", borderColor: "rgba(217, 119, 6, 0.2)" }}>
+                    <span className="case-metric">{cs.metric}</span>
+                    <strong style={{ fontSize: "1rem", color: "#fbbf24", display: "block" }}>{cs.client}</strong>
+                    <p style={{ fontSize: "13px", opacity: 0.8, marginTop: "6px" }}>{cs.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Advisor Credentials */}
+            <div id="credentials" style={{ margin: "60px 0" }}>
+              <div className="tpl-section-header">
+                <span className="tpl-section-badge">Executive Credentials</span>
+                <h2>Designations & Governance Standard</h2>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+                {(archetypeConfig?.credentials || []).map((cred, idx) => (
+                  <div key={idx} className="story-card" style={{ textAlign: "left" }}>
+                    <strong style={{ fontSize: "1.05rem", display: "block", marginBottom: "6px" }}>{cred.title}</strong>
+                    <p style={{ fontSize: "12.5px", opacity: 0.8, margin: 0 }}>{cred.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 15-Minute Discovery Call Scheduler */}
+            <div className="archetype-booking-panel" id="discovery-call" style={{ borderColor: "rgba(217, 119, 6, 0.3)" }}>
+              <div className="booking-inner">
+                <span className="tpl-section-badge">Confidential Mandate Review</span>
+                <h2>Schedule a 15-Minute Discovery Consultation</h2>
+                <p>Discuss your advisory objectives directly with our senior practice lead under strict mutual non-disclosure.</p>
+
+                <form
+                  className="archetype-interactive-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onShowToast) onShowToast("✓ Discovery call request received! Calendar invite sent under NDA.");
+                  }}
+                >
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Practice Discipline</label>
+                      <select defaultValue="Private Wealth & Family Office Governance">
+                        {(archetypeConfig?.practiceAreas || []).map((p, idx) => (
+                          <option key={idx} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Organization / Entity Type</label>
+                      <select defaultValue="Private Family Office">
+                        <option>Private Family Office</option>
+                        <option>Mid-Market Corporate</option>
+                        <option>High-Growth Tech Enterprise</option>
+                        <option>Individual HNW Mandate</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Your Name & Title</label>
+                      <input type="text" placeholder="e.g. S. Ramachandran, Managing Director" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Corporate / Private Email</label>
+                      <input type="email" placeholder="executive@organization.com" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Direct Phone / WhatsApp</label>
+                      <input type="tel" placeholder="+91 98765 43210" required />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Preferred Meeting Window</label>
+                      <select defaultValue="Tomorrow Afternoon (03:00 PM - 05:00 PM)">
+                        <option>Tomorrow Morning (10:00 AM - 12:00 PM)</option>
+                        <option>Tomorrow Afternoon (03:00 PM - 05:00 PM)</option>
+                        <option>This Thursday Executive Slot</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn-primary-block" style={{ background: "#d97706" }}>
+                    Request Confidential Discovery Call &rarr;
+                  </button>
+                  <p className="form-subtext">⚖️ Strict mutual non-disclosure applies to all communications.</p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 7. GENERAL ARCHETYPE: Core Services Section */}
+      {industry === "general" && (
+        <section className="tpl-section tpl-services-section" id="services">
+          <div className="tpl-container">
+            <div className="tpl-section-header">
+              <span className="tpl-section-badge">Capabilities & Offerings</span>
+              <h2>Our Core Services</h2>
+              <p>Designed with meticulous attention to detail and personalized care for every customer.</p>
+            </div>
+
+            <div className="tpl-services-grid">
+              {services.map((svc, sIdx) => (
+                <div
+                  key={sIdx}
+                  className={`tpl-service-card ${isEditing ? "editable-inline-block" : ""}`}
+                  onClick={isEditing ? () => onFocusField("services", `edit-service-card-${sIdx}`) : undefined}
+                >
+                  <div className="service-card-header">
+                    <span className="service-number">0{sIdx + 1}</span>
+                    <span className="service-accent-dot"></span>
+                  </div>
+                  <h3
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateService(sIdx, "name", e.currentTarget.innerText.trim())}
+                  >
+                    {svc.name}
+                  </h3>
+                  <p
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning={true}
+                    onBlur={(e) => onUpdateService(sIdx, "description", e.currentTarget.innerText.trim())}
+                  >
+                    {svc.description}
                   </p>
+                  {isEditing && <span className="inline-pen-badge">✎</span>}
                 </div>
-              </div>
-
-              {/* Strategic Pillars Grid */}
-              <div className="finance-pillars-grid">
-                {services.map((pillar, i) => {
-                  const mandates = ["Capital Preservation & Tax Shielding", "Risk Mitigation & Liquidity Governance", "Intergenerational Succession & Trust Setup"];
-                  return (
-                    <div key={i} className="finance-pillar-card">
-                      <span className="pillar-mandate">Pillar 0{i + 1}</span>
-                      <h3 className="pillar-title">{pillar.name}</h3>
-                      <p className="pillar-desc">{pillar.description}</p>
-                      <div className="pillar-metrics">
-                        <div className="metric-item">
-                          <strong>Mandate Focus:</strong>
-                          <span>{mandates[i % mandates.length]}</span>
-                        </div>
-                        <div className="metric-item">
-                          <strong>Standard:</strong>
-                          <span>Quarterly Fiduciary Review</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              ))}
             </div>
-          )}
-
-          {industry === "retail" && (
-            <div className="industry-box retail-box">
-              <div className="tpl-section-header">
-                <span className="tpl-section-badge">📦 Inspected Goods & In-Store Inventory</span>
-                <h2>Curated Showcase & Trade Counter</h2>
-                <p>Hand-selected inventory, transparent origin tracking, and dependable local service.</p>
-              </div>
-
-              <div className="retail-catalog-grid">
-                {services.map((item, i) => (
-                  <div key={i} className="retail-item-card">
-                    <div className="retail-stock-row">
-                      <span className="stock-tag in-stock">● In Stock & Ready</span>
-                      <span className="origin-tag">Hand Inspected</span>
-                    </div>
-                    <h3 className="retail-item-name">{item.name}</h3>
-                    <p className="retail-item-desc">{item.description}</p>
-                    <div className="retail-card-footer">
-                      <span className="pickup-time">📍 Available at {location}</span>
-                      <button type="button" className="retail-inquire-btn" onClick={onContactClick}>Check Details &rarr;</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {industry === "general" && (
-            <div className="industry-box general-box">
-              <div className="tpl-section-header">
-                <span className="tpl-section-badge">★ Professional Excellence</span>
-                <h2>Specialized Trade Capabilities</h2>
-                <p>Dependable, verified craft standards delivered with client-first dedication across {location}.</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Services Section */}
-      <section className="tpl-section tpl-services-section" id="services">
-        <div className="tpl-container">
-          <div className="tpl-section-header">
-            <span className="tpl-section-badge">Capabilities & Offerings</span>
-            <h2>Our Core Services</h2>
-            <p>Designed with meticulous attention to detail and personalized care for every customer.</p>
           </div>
+        </section>
+      )}
 
-          <div className="tpl-services-grid">
-            {services.map((svc, sIdx) => (
-              <div
-                key={sIdx}
-                className={`tpl-service-card ${isEditing ? "editable-inline-block" : ""}`}
-                onClick={isEditing ? () => onFocusField("services", `edit-service-card-${sIdx}`) : undefined}
-              >
-                <div className="service-card-header">
-                  <span className="service-number">0{sIdx + 1}</span>
-                  <span className="service-accent-dot"></span>
-                </div>
-                <h3
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning={true}
-                  onBlur={(e) => onUpdateService(sIdx, "name", e.currentTarget.innerText.trim())}
-                >
-                  {svc.name}
-                </h3>
-                <p
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning={true}
-                  onBlur={(e) => onUpdateService(sIdx, "description", e.currentTarget.innerText.trim())}
-                >
-                  {svc.description}
-                </p>
-                {isEditing && <span className="inline-pen-badge">✎</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Features / Why Choose Us */}
       {features && features.length > 0 && (

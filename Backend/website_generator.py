@@ -1,5 +1,6 @@
 import html
 from typing import Dict, Any, List
+from archetypes import get_archetype_html_sections
 
 
 AVAILABLE_TEMPLATES = [
@@ -199,6 +200,313 @@ SHARED_SMOOTH_SCROLL_CSS = """
       font-size: 0.95rem;
       opacity: 0.85;
       line-height: 1.6;
+    }
+
+    /* Industry Archetype Modular Styling (Salon, Cafe, Boutique, Tuition, Local Service, Consultant) */
+    .archetype-section {
+      margin: 60px 0;
+    }
+    .sec-header {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 36px;
+    }
+    .sec-badge {
+      display: inline-block;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .archetype-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .archetype-grid.grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+    .archetype-card, .lookbook-card, .curriculum-card, .case-study-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.25s ease, border-color 0.25s ease;
+    }
+    .archetype-card:hover, .lookbook-card:hover, .curriculum-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .card-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .price-pill {
+      font-weight: 800;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .card-action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      margin-top: 16px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+    }
+    .btn-archetype-sm {
+      font-size: 12px;
+      font-weight: 700;
+      color: inherit;
+      text-decoration: none;
+      opacity: 0.9;
+    }
+    .btn-archetype-sm:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .team-card, .story-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 22px;
+      text-align: center;
+    }
+    .team-avatar {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    .team-role {
+      display: block;
+      font-size: 12px;
+      opacity: 0.75;
+      margin: 4px 0 10px;
+    }
+    .archetype-booking-panel {
+      margin: 70px 0;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      padding: 40px;
+    }
+    .booking-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .archetype-interactive-form {
+      margin-top: 28px;
+      text-align: left;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      opacity: 0.85;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: inherit;
+      font-family: inherit;
+      font-size: 13.5px;
+    }
+    .btn-primary-block {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+    .btn-secondary-block {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: transparent;
+      color: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      margin-top: 10px;
+    }
+    .form-subtext {
+      font-size: 11.5px;
+      opacity: 0.65;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .menu-board-container {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .menu-item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px 20px;
+    }
+    .menu-item-left {
+      flex-grow: 1;
+      padding-right: 20px;
+    }
+    .menu-item-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .dietary-tag {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(229, 169, 59, 0.15);
+      color: #e5a93b;
+    }
+    .menu-item-price {
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .roast-spotlight-box {
+      margin: 50px 0;
+      background: rgba(224, 86, 56, 0.08);
+      border: 1px solid rgba(224, 86, 56, 0.25);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+    }
+    .roast-schedule-chips {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+    .directions-section {
+      margin: 60px 0;
+    }
+    .directions-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 36px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .emergency-alert-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin: 20px 0 30px;
+    }
+    .emergency-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .emergency-dot {
+      color: #ef4444;
+      font-size: 18px;
+      margin-right: 6px;
+    }
+    .btn-emergency-call {
+      background: #ef4444;
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .results-stats-section {
+      margin: 40px 0 60px;
+    }
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    .stat-num {
+      display: block;
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .stat-lbl {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    .case-metric {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #10b981;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .fabric-spec, .batch-time {
+      display: block;
+      font-size: 12.5px;
+      opacity: 0.8;
+      margin: 6px 0 12px;
     }
 
     /* Universal Responsive System for Standalone Templates */
@@ -2472,9 +2780,29 @@ def generate_standalone_website_html(
     content: Dict[str, Any],
     template_id: str = "modern-dark",
 ) -> str:
-    """Entrypoint to generate full standalone website HTML for any template."""
+    """Entrypoint to generate full standalone website HTML for any template with rich archetype layouts."""
     builder = TEMPLATE_BUILDERS.get(template_id, build_modern_dark)
-    return builder(business_data, content)
+    raw_html = builder(business_data, content)
+
+    # Detect and generate specialized archetype sections
+    category = business_data.get("category", "")
+    b_name = business_data.get("business_name", "")
+    loc = business_data.get("location", "")
+    hours = business_data.get("hours", "")
+    contact = business_data.get("contact", "")
+    products = business_data.get("products", [])
+
+    archetype_info = get_archetype_html_sections(category, b_name, loc, hours, contact, products)
+    body_sections = archetype_info.get("body_sections", "")
+
+    if body_sections and archetype_info.get("archetype") != "general":
+        # Insert archetype specialized sections right before the contact/hours card
+        if '<section id="contact"' in raw_html:
+            raw_html = raw_html.replace('<section id="contact"', f'{body_sections}\n\n    <section id="contact"')
+        elif '<footer' in raw_html:
+            raw_html = raw_html.replace('<footer', f'{body_sections}\n\n    <footer')
+
+    return raw_html
 
 
 def get_available_templates() -> List[Dict[str, Any]]:
